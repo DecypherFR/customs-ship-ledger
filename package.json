@@ -1,0 +1,14 @@
+{
+  "name": "customs-ship-ledger",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Belize Customs & Excise Department - National Ships Ledger (PWA)",
+  "main": "server/server.js",
+  "engines": { "node": ">=22.5" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/server.js",
+    "demo": "node --disable-warning=ExperimentalWarning tools/demo.js",
+    "import": "node --disable-warning=ExperimentalWarning tools/import.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+  }
+}
