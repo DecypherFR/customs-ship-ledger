@@ -43,7 +43,7 @@ export async function refreshBadges() {
 }
 
 async function boot() {
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
   window.addEventListener('online', paintConn); window.addEventListener('offline', paintConn);
   onSync(async (e) => {
     await paintConn();
@@ -69,7 +69,7 @@ function shell() {
   <a class="skip" href="#main">Skip to content</a>
   <div class="app">
     <aside class="side" id="side">
-      <div class="brand">${raw('<img src="/icons/icon.svg" alt="" width="36" height="36">')}<div><strong>National Ships Ledger</strong><span>Customs &amp; Excise · Belize</span></div></div>
+      <div class="brand">${raw('<img src="icons/icon.svg" alt="" width="36" height="36">')}<div><strong>National Ships Ledger</strong><span>Customs &amp; Excise · Belize</span></div></div>
       <nav id="nav" aria-label="Main"></nav>
       <div class="side-foot">
         <a href="#/account" class="who"><span class="avatar">${u.initials.replace(/[^A-Z]/g, '').slice(0, 2)}</span>
@@ -88,6 +88,12 @@ function shell() {
   </div>
   <div id="toasts" class="toasts"></div>`);
   $('#logout').addEventListener('click', logout);
+  // CSV exports are generated in the browser from data the user can already see.
+  document.addEventListener('click', async (e) => {
+    const a = e.target.closest('a[href^="/api/export/"]'); if (!a) return;
+    e.preventDefault();
+    try { await api.download(a.getAttribute('href')); } catch (err) { toast(err.message, 'error'); }
+  });
   $('#menu').addEventListener('click', () => { const o = document.body.classList.toggle('nav-open'); $('#menu').setAttribute('aria-expanded', o); });
   $('#side').addEventListener('click', (e) => { if (e.target.closest('a')) document.body.classList.remove('nav-open'); });
   paintNav(); paintConn();
@@ -136,7 +142,6 @@ async function logout() {
   const pending = (await outbox.all()).length;
   if (pending && !confirm(`${pending} offline change(s) have not been sent yet. They stay on this device and will send when you next sign in. Sign out anyway?`)) return;
   try { await api.send('POST', '/api/logout', {}); } catch { /* ignore */ }
-  navigator.serviceWorker?.controller?.postMessage('clear-api-cache');
   S.me = null; location.hash = ''; loginView();
 }
 
@@ -144,10 +149,10 @@ function loginView() {
   document.body.innerHTML = String(html`
   <main class="login">
     <form class="login-card" id="login" novalidate>
-      ${raw('<img src="/icons/icon.svg" alt="" width="64" height="64">')}
+      ${raw('<img src="icons/icon.svg" alt="" width="64" height="64">')}
       <h1>National Ships Ledger</h1>
       <p class="muted">Belize Customs &amp; Excise Department</p>
-      <label>Username<input name="username" autocomplete="username" required autocapitalize="none"></label>
+      <label>Email<input name="username" type="email" autocomplete="username" required autocapitalize="none" inputmode="email"></label>
       <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
       <p class="form-error" role="alert" hidden></p>
       <button class="btn btn-primary btn-block" type="submit">Sign in</button>
@@ -159,7 +164,7 @@ function loginView() {
     e.preventDefault();
     const btn = f.querySelector('button'); btn.disabled = true;
     try { S.me = await api.send('POST', '/api/login', formData(f)); await start(); }
-    catch (err) { showFormError(f, err.status ? err : new Error(navigator.onLine ? err.message : 'You need a connection to sign in for the first time on this device.')); }
+    catch (err) { showFormError(f, err.status ? err : new Error('You need a connection to sign in. Once signed in, the app keeps working offline.')); }
     finally { btn.disabled = false; }
   });
 }
@@ -191,7 +196,7 @@ async function accountView(main) {
   main.innerHTML = String(html`<div class="page-head"><h1>My account</h1></div>
   <div class="grid-2">
     <section class="card"><h2>Profile</h2><dl class="kv">
-      <dt>Name</dt><dd>${u.full_name}</dd><dt>Username</dt><dd>${u.username}</dd><dt>Printed as</dt><dd>${u.initials}</dd>
+      <dt>Name</dt><dd>${u.full_name}</dd><dt>Email</dt><dd>${u.username}</dd><dt>Printed as</dt><dd>${u.initials}</dd>
       <dt>Role</dt><dd>${S.me.role_label}</dd><dt>Station</dt><dd>${S.me.station_name}</dd></dl>
       <p class="help">${S.lookups.roles[u.role].desc}</p></section>
     <section class="card"><h2>Change password</h2><form id="pw" class="stack" novalidate>${passwordFields()}

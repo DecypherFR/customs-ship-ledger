@@ -1,0 +1,63 @@
+{
+ "calls": [
+  {
+   "vessel_type": "Container Vessel",
+   "station": "Belize City",
+   "voyage_no": "1111",
+   "vessel_name": "TEST CARRIER",
+   "imo": "9000001",
+   "flag": "PANAMA",
+   "agent": "EXAMPLE SHIPPING AGENCY",
+   "gross_tonnage": 5000,
+   "net_tonnage": 3000,
+   "crew": 12,
+   "passengers": 0,
+   "master": "JANE SAMPLE",
+   "last_port": "KINGSTON, JAMAICA",
+   "arrival_date": "2026-09-10",
+   "boarding_officer": "J.REYES",
+   "next_port": "KINGSTON, JAMAICA",
+   "departure_date": "2026-09-24",
+   "clearance_officer": "J.REYES",
+   "cargo": "Liveaboard",
+   "row": 6,
+   "rotation_no": "2026/CRG/4321",
+   "remarks": null
+  },
+  {
+   "vessel_type": "Liveaboard Vessel",
+   "station": "San Pedro",
+   "voyage_no": "NA",
+   "vessel_name": "TEST LIVEABOARD",
+   "imo": "9000002",
+   "flag": "CANADA",
+   "agent": "EXAMPLE YACHT SERVICES",
+   "gross_tonnage": 60,
+   "net_tonnage": 20,
+   "crew": 2,
+   "passengers": 0,
+   "master": "JOHN SAMPLE",
+   "last_port": "KEY WEST, UNITED STATES OF AMERICA",
+   "arrival_date": "2026-09-23",
+   "boarding_officer": "J.REYES",
+   "next_port": "NA",
+   "departure_date": null,
+   "clearance_officer": null,
+   "cargo": "Ballast / No Cargo",
+   "row": 7,
+   "rotation_no": "2026/OTH/1",
+   "remarks": null
+  }
+ ],
+ "extensions": [
+  {
+   "rotation_no": "2026/OTH/1",
+   "date_granted": "2026-09-23",
+   "original_expiry": "2026-09-22",
+   "new_expiry": "2027-09-22",
+   "approved_by": "J.REYES",
+   "reason": "Liveaboard",
+   "remarks": null
+  }
+ ]
+}

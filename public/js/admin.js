@@ -22,18 +22,18 @@ export async function usersView(main) {
   main.innerHTML = String(html`
   <div class="page-head"><div><h1>Users &amp; roles</h1><p class="muted">Officers and supervisors only see their own station. Everyone else works nationally.</p></div>
     <button class="btn btn-primary" id="add">${icon('plus')} Add user</button></div>
-  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Username</th><th>Printed as</th><th>Role</th><th>Station</th><th>Last sign-in</th><th>Status</th><th></th></tr></thead>
-  <tbody>${users.map((u) => html`<tr class="${u.active ? '' : 'inactive'}"><td data-l="Name"><b>${u.full_name}</b></td><td data-l="Username" class="mono">${u.username}</td><td data-l="Printed as">${u.initials}</td>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Email</th><th>Printed as</th><th>Role</th><th>Station</th><th>Last sign-in</th><th>Status</th><th></th></tr></thead>
+  <tbody>${users.map((u) => html`<tr class="${u.active ? '' : 'inactive'}"><td data-l="Name"><b>${u.full_name}</b></td><td data-l="Email">${u.email || html`<span class="muted">No sign-in (imported)</span>`}</td><td data-l="Printed as">${u.initials}</td>
     <td data-l="Role">${roles[u.role].label}</td><td data-l="Station">${st(u.station_code)}</td><td data-l="Last sign-in">${u.last_login_at ? fmtDateTime(u.last_login_at) : 'Never'}</td>
     <td data-l="Status">${u.active ? (u.must_change_password ? html`<span class="tag">Must set password</span>` : 'Active') : html`<span class="tag">Inactive</span>`}</td>
-    <td><button class="btn btn-sm" data-edit="${u.id}">Edit</button> <button class="btn btn-sm btn-ghost" data-reset="${u.id}">Reset password</button></td></tr>`)}</tbody></table></div>
+    <td><button class="btn btn-sm" data-edit="${u.id}">Edit</button> ${u.email ? html`<button class="btn btn-sm btn-ghost" data-reset="${u.id}">Reset password</button>` : html`<button class="btn btn-sm btn-ghost" data-signin="${u.id}">Give sign-in</button>`}</td></tr>`)}</tbody></table></div>
   <section class="card section"><h2>What each role can do</h2><div class="tbl-wrap"><table class="tbl tbl-compact matrix"><thead><tr><th>Permission</th>${Object.values(roles).map((r) => html`<th>${r.label}</th>`)}</tr></thead>
     <tbody>${ROLE_MATRIX.map(([p, rs]) => html`<tr><td>${p}</td>${Object.keys(roles).map((k) => html`<td class="c">${rs.includes(k) ? html`${icon('check', 'ok')}<span class="sr">Yes</span>` : html`<span class="muted" aria-label="No">—</span>`}</td>`)}</tr>`)}</tbody></table></div></section>`);
 
   const form = (u = {}) => html`<div class="fgrid">
-    ${u.id ? '' : html`<label>Username<input name="username" required autocapitalize="none"></label>`}
+    ${u.id ? '' : html`<label>Email<input name="email" type="email" required autocapitalize="none"></label>`}
     <label>Full name<input name="full_name" required value="${u.full_name || ''}"></label>
-    <label>Printed as (initials)<input name="initials" value="${u.initials || ''}" class="caps" placeholder="e.g. G.DOMINGUEZ"></label>
+    <label>Printed as (initials)<input name="initials" value="${u.initials || ''}" class="caps" placeholder="e.g. J.REYES"></label>
     <label>Role<select name="role" required>${options(Object.entries(roles), u.role, { blank: 'Select role…', value: (r) => r[0], label: (r) => r[1].label })}</select></label>
     <label>Station<select name="station_code">${options(S.lookups.stations, u.station_code, { blank: 'All stations (national)', value: (s) => s.code, label: (s) => s.name })}</select></label>
     ${u.id ? html`<label class="chk span2"><input type="checkbox" name="active" ${u.active ? raw('checked') : ''}> Account active</label>`
@@ -43,23 +43,34 @@ export async function usersView(main) {
 
   $('#add', main).addEventListener('click', () => {
     const { form: f } = openDialog('Add user', form(), { submitLabel: 'Create user', onSubmit: async (fm) => {
-      const d = formData(fm); d.national = !d.station_code;
-      await api.send('POST', '/api/users', d); toast('User created.', 'success'); render(); return true;
+      await api.send('POST', '/api/users', formData(fm)); toast('User created. Give them the temporary password; they must change it at first sign-in.', 'success'); render(); return true;
     } });
     wireDesc(f);
   });
   $$('[data-edit]', main).forEach((b) => b.addEventListener('click', () => {
-    const u = users.find((x) => x.id === Number(b.dataset.edit));
-    const { form: f } = openDialog(`Edit ${u.username}`, form(u), { onSubmit: async (fm) => {
+    const u = users.find((x) => x.id === b.dataset.edit);
+    const { form: f } = openDialog(`Edit ${u.full_name}`, form(u), { onSubmit: async (fm) => {
       await api.send('PUT', `/api/users/${u.id}`, formData(fm)); toast('User updated.', 'success'); render(); return true;
     } });
     wireDesc(f);
   }));
   $$('[data-reset]', main).forEach((b) => b.addEventListener('click', () => {
-    const u = users.find((x) => x.id === Number(b.dataset.reset));
-    openDialog(`Reset password — ${u.username}`, html`<p>Sets a temporary password, signs ${u.full_name} out everywhere and unlocks the account.</p>
+    const u = users.find((x) => x.id === b.dataset.reset);
+    openDialog(`Reset password — ${u.email}`, html`<p>Sets a temporary password for ${u.full_name}. They must choose a new one at their next sign-in.</p>
       <label>Temporary password<input name="password" required minlength="10"></label>`, { submitLabel: 'Reset password', onSubmit: async (fm) => {
       await api.send('POST', `/api/users/${u.id}/reset-password`, { password: fm.password.value }); toast('Password reset.', 'success'); render(); return true;
+    } });
+  }));
+  // Officers imported from the Excel ledger exist without a sign-in; giving them one keeps their history attached.
+  $$('[data-signin]', main).forEach((b) => b.addEventListener('click', () => {
+    const u = users.find((x) => x.id === b.dataset.signin);
+    openDialog(`Give ${u.initials} a sign-in`, html`<p>${u.initials} appears on imported records. Creating a sign-in links those records to the new account.</p>
+      <div class="fgrid"><label class="span2">Email<input name="email" type="email" required></label>
+      <label>Full name<input name="full_name" required value="${u.full_name === u.initials ? '' : u.full_name}"></label>
+      <label>Role<select name="role" required>${options(Object.entries(roles), u.role, { blank: null, value: (r) => r[0], label: (r) => r[1].label })}</select></label>
+      <label>Station<select name="station_code">${options(S.lookups.stations, u.station_code, { blank: 'All stations (national)', value: (s) => s.code, label: (s) => s.name })}</select></label>
+      <label>Temporary password<input name="password" required minlength="10"></label></div>`, { submitLabel: 'Create sign-in', onSubmit: async (fm) => {
+      await api.send('POST', `/api/users/${u.id}/signin`, formData(fm)); toast('Sign-in created.', 'success'); render(); return true;
     } });
   }));
 }

@@ -14,7 +14,7 @@ export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 // The ledger prints dates as dd-mm-yyyy.
 export const fmtDate = (d) => (d ? `${d.slice(8, 10)}-${d.slice(5, 7)}-${d.slice(0, 4)}` : '');
-export const fmtDateTime = (s) => { if (!s) return ''; const d = new Date(s.replace(' ', 'T') + (s.includes('Z') ? '' : 'Z')); return d.toLocaleString('en-GB', { timeZone: 'America/Belize', dateStyle: 'medium', timeStyle: 'short' }); };
+export const fmtDateTime = (s) => { if (!s) return ''; const iso = String(s).replace(' ', 'T'); const d = new Date(/(Z|[+-]\d\d:?\d\d)$/.test(iso) ? iso : `${iso}Z`); return d.toLocaleString('en-GB', { timeZone: 'America/Belize', dateStyle: 'medium', timeStyle: 'short' }); };
 export const fmtNum = (n) => (n == null || n === '' ? '' : Number(n).toLocaleString('en-US'));
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 export const fmtMonth = (m) => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;

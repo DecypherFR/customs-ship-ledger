@@ -1,14 +1,17 @@
 {
   "name": "customs-ship-ledger",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Belize Customs & Excise Department - National Ships Ledger (PWA)",
-  "main": "server/server.js",
-  "engines": { "node": ">=22.5" },
+  "description": "Belize Customs & Excise Department - National Ships Ledger (PWA on Supabase)",
+  "type": "commonjs",
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning server/server.js",
-    "demo": "node --disable-warning=ExperimentalWarning tools/demo.js",
-    "import": "node --disable-warning=ExperimentalWarning tools/import.js",
-    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+    "dev:db": "dev/setup-db.sh",
+    "dev:demo": "node tools/demo.mjs",
+    "dev": "node dev/stack.mjs",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "2.117.2",
+    "pg": "8.23.0"
   }
 }

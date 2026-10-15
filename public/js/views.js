@@ -115,7 +115,9 @@ function rowLinks(root) {
 // ============================================================ LEDGER (VESSEL MOVEMENTS)
 export async function callList(main, { params }) {
   const p = { q: params.q || '', status: params.status || '', station: params.station || '', month: params.month || '', type: params.type || '', flag: params.flag || '' };
-  const [rows, queued] = await Promise.all([api.get(`/api/calls?${qs(p)}`), outbox.all()]);
+  // Offline on a device that never loaded this list: still show calls queued on this device.
+  const offlineEmpty = (e) => { if (e.status !== 503) throw e; const r = []; Object.defineProperty(r, '__offline', { value: true }); return r; };
+  const [rows, queued] = await Promise.all([api.get(`/api/calls?${qs(p)}`).catch(offlineEmpty), outbox.all()]);
   const pending = queued.filter((i) => i.method === 'POST' && i.url === '/api/calls');
   const flagLabel = { attention: 'needing attention', datacheck: 'failing data check', unverified: 'departed but not verified' }[p.flag];
   main.innerHTML = String(html`
@@ -133,7 +135,7 @@ export async function callList(main, { params }) {
     ${Object.values(p).some(Boolean) ? html`<a class="btn btn-ghost btn-sm" href="#/calls">Clear</a>` : ''}
   </form>
   ${pending.length ? html`<div class="note note-warn">${icon('cloudoff')} ${pending.length} new call${pending.length > 1 ? 's are' : ' is'} saved on this device and will receive a Rotation No. when synced. <a href="#/sync">View queue</a></div>` : ''}
-  ${rows.length ? html`<div class="tbl-wrap"><table class="tbl tbl-ledger"><thead><tr>
+  ${rows.length || pending.length ? html`<div class="tbl-wrap"><table class="tbl tbl-ledger"><thead><tr>
     <th>Rotation No.</th><th>Vessel</th><th>Type</th><th>Station</th><th>Arrived</th><th>Departed</th><th class="num">Crew</th><th class="num">Ext.</th><th>Status</th><th><span class="sr">Flags</span></th></tr></thead>
     <tbody>${pending.map((q) => html`<tr class="pending"><td data-l="Rotation No.">—</td><td data-l="Vessel"><b>${(q.body.vessel_name || '').toUpperCase()}</b></td><td data-l="Type">${q.body.vessel_type}</td><td data-l="Station">${stationName(q.body.station_code || S.me.user.station_code)}</td><td data-l="Arrived">${fmtDate(q.body.arrival_date)}</td><td data-l="Departed">${fmtDate(q.body.departure_date)}</td><td class="num" data-l="Crew">${q.body.crew}</td><td class="num" data-l="Ext.">0</td><td data-l="Status">${chip('PENDING SYNC')}</td><td></td></tr>`)}
     ${rows.map((c) => html`<tr class="rowlink" data-href="#/calls/${c.id}">
@@ -223,7 +225,10 @@ export async function callDetail(main, { id }) {
 function diffText(json) {
   try {
     const d = JSON.parse(json);
-    return Object.entries(d).filter(([k]) => k !== 'officer_report').map(([k, [a, b]]) => `${k.replace(/_/g, ' ')}: ${a ?? '—'} → ${b ?? '—'}`).join(' · ') || 'Ship\'s Report updated';
+    const who = (v) => (S.lookups.officers.concat(S.lookups.staff).find((o) => o.id === v) || {}).initials || v;
+    const show = (k, v) => (v == null ? '—' : k.endsWith('_officer_id') ? who(v) : v);
+    return Object.entries(d).filter(([k]) => k !== 'officer_report')
+      .map(([k, [a, b]]) => `${k.replace(/_id$/, '').replace(/_/g, ' ')}: ${show(k, a)} → ${show(k, b)}`).join(' · ') || 'Ship\'s Report updated';
   } catch { return ''; }
 }
 
@@ -241,7 +246,7 @@ export async function shipReport(main, { id }) {
     ${canEdit ? html`<button class="btn" id="save-rp" form="rp">${icon('check')} Save officer's report</button>` : ''}
     <button class="btn btn-primary" id="print">${icon('print')} Print</button></div></div>
   <form id="rp" class="report" novalidate>
-    <header class="rp-head"><img src="/icons/icon.svg" alt="" width="54" height="54"><div><p>BELIZE CUSTOMS &amp; EXCISE DEPARTMENT</p><h2>SHIP'S REPORT</h2></div><div class="rp-rot"><span>Rotation No.</span><b class="mono">${c.rotation_no}</b></div></header>
+    <header class="rp-head"><img src="icons/icon.svg" alt="" width="54" height="54"><div><p>BELIZE CUSTOMS &amp; EXCISE DEPARTMENT</p><h2>SHIP'S REPORT</h2></div><div class="rp-rot"><span>Rotation No.</span><b class="mono">${c.rotation_no}</b></div></header>
     <h3>Ship particulars</h3>
     <div class="rp-grid">${[['Flag', c.flag], ['Rig', c.vessel_type], ['Vessel Name', c.vessel_name], ['Master', c.master], ['Tonnage GT / NT', `${fmtNum(c.gross_tonnage)} / ${fmtNum(c.net_tonnage)}`], ['Crew No.', c.crew], ['Port of Departure', c.last_port], ['Date of Departure', fmtDate(c.departure_date)], ['IMO / Reg. No.', c.imo], ['Station', c.station_name]].map(([l, v]) => html`<div class="rp-f"><span>${l}</span><b>${v ?? ''}</b></div>`)}</div>
     <h3>Cargo particulars</h3>

@@ -2,55 +2,18 @@
 
 A Progressive Web App that replaces the `National_Shipping_Ledger.xlsx` workbook. It keeps the workbook's structure (Vessel Movements, Extension Log, Ship's Report, Dashboard and Overstay Investigation Register) and its rules, adds user accounts with role-based access, and works offline at stations with poor connectivity.
 
-## Quick start
+## How it is built
 
-Requires **Node.js 22.5 or newer** and nothing else. There are no npm dependencies; the database is SQLite through Node's built-in `node:sqlite`.
-
-```bash
-npm start                      # http://localhost:8080, database in data/ledger.db
-```
-
-On first start an `admin` account is created with password `ChangeMe!2026`, or the value of `ADMIN_PASSWORD` if set. The admin must choose a new password at first sign-in.
-
-### Try it with demo data
-
-```bash
-DB_FILE=data/demo.db npm run demo
-DB_FILE=data/demo.db npm start
-```
-
-All demo accounts use the password `Demo2026pass`:
-
-| Username | Role | Station |
+| Piece | Where it runs | What it does |
 |---|---|---|
-| `gdominguez` | Customs Officer | Belize City |
-| `mcastillo` | Customs Officer | San Pedro |
-| `jflowers` | Station Supervisor | Belize City |
-| `rnunez` | Station Supervisor | San Pedro |
-| `kyoung` | Investigations Officer | national |
-| `comptroller` | Comptroller / Management | national |
-| `admin` | System Administrator | national |
+| `public/` | Static hosting (GitHub Pages) | The PWA: HTML, CSS and JavaScript, installable and usable offline |
+| `supabase/migrations/` | Supabase Postgres | Tables, the ledger's business rules, and **all permission checks** |
+| `supabase/functions/admin-users/` | Supabase Edge Function | Creating sign-ins and resetting passwords (needs the service key, so never runs in the browser) |
+| Supabase Auth | Supabase | Email and password sign-in |
 
-### Import the existing Excel ledger
-
-```bash
-python3 tools/ledger_to_json.py National_Shipping_Ledger.xlsx > import.json   # needs openpyxl
-npm run import -- import.json          # or upload the JSON under Lists & settings
-```
-
-Existing rotation numbers are kept, so paperwork already issued still matches. Officers named in the workbook (for example `G.DOMINGUEZ`) become inactive placeholder accounts. An administrator can activate them.
-
-### Tests
-
-```bash
-npm test
-```
-
-There are 14 API tests. They cover rotation numbering, validation, station scoping, permissions, the extension approval workflow, overstay status, optimistic locking, verification locks, offline replay de-duplication and CSV export.
+**Security model.** Every table has row-level security. Signed-in users can only *read* what their role allows: station officers and supervisors see only their own station. There are **no direct write permissions** at all. Every change goes through a database function that checks the caller's role and applies the ledger's rules, then writes an audit entry. The `anon` key in `public/config.js` is public by design: with it, a person who isn't signed in can read nothing and change nothing.
 
 ## Roles
-
-Officers and supervisors who are assigned a station see and record **only that station's** vessel calls. Every other role has national scope. All permissions are enforced on the server, not only hidden in the UI.
 
 | Permission | Officer | Supervisor | Investigator | Management | Admin |
 |---|:-:|:-:|:-:|:-:|:-:|
@@ -63,42 +26,95 @@ Officers and supervisors who are assigned a station see and record **only that s
 | Audit trail | | | | ✓ | ✓ |
 | Users, reference lists, settings, delete records | | | | | ✓ |
 
+Officers and supervisors who are assigned a station see only that station's records. Nobody can approve their own extension request.
+
+## Deploying
+
+1. Create a Supabase project. Put its URL and `anon` key in `public/config.js`.
+2. Set two environment variables. **Don't commit them.**
+   - `SUPABASE_DB_URL`: from **Connect → Session pooler**, with the database password.
+   - `SUPABASE_ACCESS_TOKEN`: a personal access token from https://supabase.com/dashboard/account/tokens.
+3. Run:
+   ```bash
+   ADMIN_EMAIL=you@example.gov.bz tools/deploy.sh
+   ```
+   This does the following:
+   - applies the migrations;
+   - deploys the `admin-users` function;
+   - turns **off** public sign-ups, so only administrators create accounts;
+   - creates the first administrator and prints a one-time temporary password, which must be changed at first sign-in;
+   - publishes `public/` to GitHub Pages.
+
+   The script is safe to re-run.
+4. Sign in, then add staff under **Users**.
+
+### Importing the existing Excel ledger
+
+```bash
+python3 tools/ledger_to_json.py National_Shipping_Ledger.xlsx > import.json   # needs openpyxl
+```
+
+Then upload `import.json` under **Lists & settings → Import**. Existing rotation numbers are kept. Officers named in the workbook (for example `J.REYES`) become placeholder entries with no sign-in. **Give sign-in** on the Users page creates an account for them and keeps their history attached.
+
+### Demo data (test projects only)
+
+```bash
+DATABASE_URL=$SUPABASE_DB_URL SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=... node tools/demo.mjs
+```
+
+This creates seven `@example.com` accounts, one per role, with the password `Demo2026pass`, plus about 40 vessel calls. Never run it against the live ledger.
+
+## Local development
+
+You need Node.js 22 or newer, PostgreSQL 15 or newer, and the [PostgREST](https://github.com/PostgREST/postgrest/releases) binary (version 12).
+
+```bash
+npm install
+npm run dev:db            # fresh local database that behaves like Supabase (dev/supabase_shim.sql + migrations)
+npm run dev:demo          # demo accounts and data
+POSTGREST_BIN=/path/to/postgrest npm run dev    # app on http://localhost:8080, API on :54321
+```
+
+`dev/stack.mjs` stands in for Supabase locally. It runs PostgREST, which is the same API server Supabase uses, plus a minimal auth server and the real `admin-users` handler. The app runs against it unchanged, using the real supabase-js library.
+
+### Tests
+
+```bash
+npm test                  # 14 database tests: rules, RLS and permissions, run as real signed-in users
+npm i --no-save playwright && node dev/e2e.mjs /tmp/out   # browser walkthrough of every role, incl. offline sync
+```
+
+The database tests need a local Postgres. Set `TEST_DATABASE_URL` if it isn't `postgres://postgres@localhost:5432/postgres`.
+
 ## What it does beyond the spreadsheet
 
-- **Rotation numbers are issued by the server inside a transaction.** Two stations can't receive the same number. CRG numbers supplied by agents are checked for duplicates. The year comes from the arrival date, so nobody has to change cell B4 at New Year.
-- **Vessel registry.** Type part of a name or IMO number and the vessel's particulars, last master, agent, crew and cargo fill in from its previous call.
+- **Rotation numbers are issued inside the database under a lock.** Two stations can't receive the same number. CRG numbers supplied by agents are checked for duplicates. The year comes from the arrival date, so nobody has to change cell B4 at New Year.
+- **Vessel registry.** Repeat callers' particulars, last master, agent, crew and cargo fill in automatically.
 - **Live data check.** The workbook's "Data Check" column shows as you type. Hard errors block saving: departure before arrival, a future arrival date, or a departed vessel with no clearance officer.
-- **Extension approval workflow.** Officers request an extension and a supervisor approves or rejects it. Nobody can approve their own request. The original expiry is filled in from the previous extension, and a new expiry must come later.
-- **Earlier warnings.** Besides OVERDUE and URGENT (3 or more extensions), the app flags **expiring soon** (within 7 days) and **long stay with no extension** (more than 30 days in port). Both thresholds can be changed under Lists & settings.
-- **Investigation cases.** Notes, an assignee, a status and an outcome are attached to the vessel call. In the workbook, notes typed beside a formula-driven row could end up next to the wrong vessel when the list changed.
-- **Verify & lock.** A supervisor signs off a departed call, after which only an administrator can change it. Unlocking requires a reason.
-- **Ship's Report per call.** The officer's report section (times, health official, pilot, fumigated, rummaged) is stored with each call instead of being overwritten. The report prints on one page.
-- **Audit trail.** Every sign-in, change (with before and after values), approval, export and deletion is recorded.
-- **Offline.** The app installs on phones and tablets. Without a connection, officers can still open recently viewed pages and record new calls, departures, extension requests and Ship's Reports. These are queued on the device and sent when the connection returns. Each queued item has an ID, so sending it twice can't create a duplicate.
-- **Conflict protection.** If two people edit the same call, the second person to save is told to reload, so nobody's changes are silently overwritten.
-- **Security.** Passwords are hashed with scrypt. Sessions use HttpOnly SameSite=Strict cookies, accounts lock after 5 failed sign-ins, users must change their password at first sign-in, and the app sends a strict Content Security Policy.
+- **Extension approval workflow.** Officers request an extension and a supervisor decides. The original expiry is carried over from the previous extension.
+- **Earlier warnings.** Besides OVERDUE and URGENT (3 or more extensions), the app flags extensions **expiring soon** and **long stays with no extension**. The thresholds can be set under Lists & settings.
+- **Investigation cases.** Notes, an assignee, a status and an outcome are attached to the vessel call, not to a spreadsheet row.
+- **Verify & lock.** A supervisor signs off a departed call. Unlocking requires a reason.
+- **Audit trail.** Sign-ins, every change (with before and after values), approvals, exports and deletions are all recorded.
+- **Offline.** Recently opened pages are kept on the device. New calls, departures, extension requests and Ship's Reports are queued and sent when the connection returns. Each queued item has an ID, so sending it twice can't create a duplicate.
+- **Conflict protection.** Two people editing the same call can't silently overwrite each other.
 
 ### Issues found in the workbook (fixed here)
 
 1. The **Liveaboard Vessel** dropdown entry has a leading space and doesn't match the LISTS sheet, so liveaboards were classed as `OTH`. They now get their own `LVB` class. Imported records keep their original numbers.
-2. The **Remarks** column (X) contains a formula (`=TEXT(O6,"yyyy-mm")`) that overwrites remarks with the month of the Last Port.
-3. The dashboard formulas only cover rows 6–505, while the movement sheet and the Extension Log run to row 1004. Calls after row 505 are left out of the totals.
+2. The **Remarks** column (X) contains a formula that overwrites remarks with the Last Port's month.
+3. The dashboard formulas only cover rows 6–505, while the data sheets run to row 1004.
 4. Overstay investigation notes are typed beside formula-driven rows, so they become misaligned when the overdue list changes.
 5. Ship's Report fields such as Pilot, Health Official and Rummaged are single cells that the next report overwrites.
-6. Data entry errors in the sample data: `KINGSTON, JAMAIACA`, and a container vessel with cargo "Liveaboard". The app suggests ports from earlier entries to reduce typos like the first one.
-
-## Deployment notes
-
-- Run behind HTTPS, which service workers and installation require. Use a reverse proxy such as nginx or IIS and set `COOKIE_SECURE=1`.
-- Environment variables: `PORT` (default 8080), `DB_FILE`, `SESSION_HOURS` (default 12), `ADMIN_PASSWORD` (first run only), `COOKIE_SECURE`.
-- Back up the SQLite file in `data/`, for example nightly with `sqlite3 data/ledger.db ".backup backup.db"`.
-- "Today" is computed in Belize time (America/Belize).
+6. Typing errors in the sample rows (a misspelt port name, and a container vessel with cargo "Liveaboard"). The app suggests ports from earlier entries to reduce these.
 
 ## Layout
 
 ```
-server/   server.js (HTTP + API), db.js (schema, seed lists), auth.js (passwords, roles), ledger.js (business rules)
-public/   index.html, sw.js, manifest, css/, js/ (app shell, views, forms, admin, offline API client)
-tools/    ledger_to_json.py (Excel → JSON), import.js, demo.js
-test/     api.test.js
+public/                    the PWA (config.js holds the Supabase URL and anon key)
+supabase/migrations/       schema, RLS policies and business-rule functions
+supabase/functions/        admin-users edge function (handler.js is shared with the local stack)
+tools/                     deploy.sh, ledger_to_json.py (Excel → JSON), demo.mjs
+dev/                       local Supabase stand-in, database shim, browser walkthrough
+test/                      database tests
 ```

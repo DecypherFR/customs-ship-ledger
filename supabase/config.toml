@@ -1,0 +1,6 @@
+# Supabase CLI settings used by tools/deploy.sh.
+project_id = "customs-ship-ledger"
+
+[functions.admin-users]
+# The function verifies the caller's token itself (and must answer browser CORS preflights).
+verify_jwt = false
