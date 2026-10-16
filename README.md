@@ -91,8 +91,10 @@ The database tests need a local Postgres. Set `TEST_DATABASE_URL` if it isn't `p
 - **Rotation numbers are issued inside the database under a lock.** Two stations can't receive the same number. CRG numbers supplied by agents are checked for duplicates. The year comes from the arrival date, so nobody has to change cell B4 at New Year.
 - **Vessel registry.** Repeat callers' particulars, last master, agent, crew and cargo fill in automatically.
 - **Live data check.** The workbook's "Data Check" column shows as you type. Hard errors block saving: departure before arrival, a future arrival date, or a departed vessel with no clearance officer.
-- **Extension approval workflow.** Officers request an extension and a supervisor decides. The original expiry is carried over from the previous extension.
-- **Earlier warnings.** Besides OVERDUE and URGENT (3 or more extensions), the app flags extensions **expiring soon** and **long stays with no extension**. The thresholds can be set under Lists & settings.
+- **Estimated date of departure (EDD).** Every vessel in port has an EDD. Until an extension is approved, the approved stay ends on the EDD; after it the vessel is OVERDUE. Once a call is saved, only a supervisor or administrator can move its EDD: officers request an extension instead.
+- **Extension approval workflow.** Officers request an extension and a supervisor decides. The first extension starts from the EDD; later ones carry over the previous extension's expiry.
+- **Earlier warnings.** Besides OVERDUE and URGENT (3 or more extensions), the app flags approved stays **ending soon**. Calls recorded before EDDs existed, with no extension, are flagged as **long stays**. The thresholds can be set under Lists & settings.
+- **Standard lists of shipping agents and flags.** Calls pick the agent and flag / nationality from a list, so one agent is not spelled five ways. Officers can add a new agent while recording a call (a variant spelling of a listed agent picks the listed one). Administrators correct names under Lists & settings, which updates every call, and merge duplicates by renaming one entry to the other's name. The flag list starts with every country.
 - **Investigation cases.** Notes, an assignee, a status and an outcome are attached to the vessel call, not to a spreadsheet row.
 - **Verify & lock.** A supervisor signs off a departed call. Unlocking requires a reason.
 - **Audit trail.** Sign-ins, every change (with before and after values), approvals, exports and deletions are all recorded.

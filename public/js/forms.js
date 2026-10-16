@@ -17,6 +17,8 @@ export async function callForm(main, { id }) {
   const stationLocked = ['officer', 'supervisor'].includes(S.me.user.role) && S.me.user.station_code;
   const isAdmin = S.me.user.role === 'admin';
   const rotLocked = editing && !isAdmin;
+  // Once saved, the EDD sets the approved stay: only supervisors and administrators may move it.
+  const eddLocked = editing && c.estimated_departure && !can('ext.approve');
   const dl = (idName, items) => html`<datalist id="${idName}">${items.map((x) => html`<option value="${x}"></option>`)}</datalist>`;
 
   main.innerHTML = String(html`
@@ -33,7 +35,7 @@ export async function callForm(main, { id }) {
         <div class="rot-preview" aria-live="polite"><span>Rotation No.</span><b class="mono" id="rotprev">-</b></div>
         <label class="span2">Vessel name <span class="req">*</span><input name="vessel_name" required value="${c.vessel_name || ''}" class="caps"></label>
         <label>IMO / Registration No.<input name="imo" value="${c.imo || ''}" class="caps mono"></label>
-        <label>Flag / Nationality<input name="flag" list="dl-flags" value="${c.flag || ''}" class="caps"></label>
+        <label>Flag / Nationality<select name="flag">${listOptions(lk.flags, c.flag, 'Select flag…')}</select></label>
         <label>Gross tonnage<input name="gross_tonnage" type="number" min="0" step="any" inputmode="decimal" value="${c.gross_tonnage ?? ''}"></label>
         <label>Net tonnage<input name="net_tonnage" type="number" min="0" step="any" inputmode="decimal" value="${c.net_tonnage ?? ''}"></label>
       </div></section>
@@ -42,12 +44,14 @@ export async function callForm(main, { id }) {
       <div class="fgrid">
         <label>Customs station <span class="req">*</span><select name="station_code" required ${stationLocked ? raw('disabled') : ''}>${options(lk.stations, c.station_code, { blank: 'Select station…', value: (s) => s.code, label: (s) => s.name })}</select></label>
         <label>Arrival / boarding date <span class="req">*</span><input name="arrival_date" type="date" required max="${today()}" value="${c.arrival_date || ''}"></label>
+        <label>Estimated departure (EDD) <span class="req" id="eddreq">*</span><input name="estimated_departure" type="date" min="${c.arrival_date || ''}" value="${c.estimated_departure || ''}" ${eddLocked ? raw('disabled') : ''} aria-describedby="eddhelp">
+          <small class="help" id="eddhelp">${eddLocked ? 'Only a supervisor can change it. Request an extension instead.' : 'The approved stay ends on this date unless an extension is granted.'}</small></label>
         <label>Boarding officer<select name="boarding_officer_id">${options(officers(), c.boarding_officer_id, { blank: 'Select officer…', value: (o) => o.id, label: (o) => o.initials })}</select></label>
         <label>Voyage number<input name="voyage_no" value="${c.voyage_no || ''}" class="caps"></label>
         <label>Last port<input name="last_port" list="dl-ports" value="${c.last_port || ''}" class="caps" placeholder="e.g. KINGSTON, JAMAICA"></label>
         <label>Next port<input name="next_port" list="dl-ports" value="${c.next_port || ''}" class="caps"></label>
         <label>Master<input name="master" value="${c.master || ''}" class="caps"></label>
-        <label>Shipping agent<input name="agent" list="dl-agents" value="${c.agent || ''}" class="caps"></label>
+        <label>Shipping agent<select name="agent">${listOptions(lk.shipping_agents, c.agent, 'Select agent…')}<option value="${NEW}">+ Add a new agent…</option></select></label>
         <label>Crew<input name="crew" type="number" min="0" step="1" inputmode="numeric" value="${c.crew ?? ''}"></label>
         <label>Passengers<input name="passengers" type="number" min="0" step="1" inputmode="numeric" value="${c.passengers ?? ''}"></label>
         <label class="span2">Cargo / operation<select name="cargo">${options(lk.cargo_types.map((x) => x.name), c.cargo, { blank: 'Select cargo / operation…' })}</select></label>
@@ -69,7 +73,7 @@ export async function callForm(main, { id }) {
         <button class="btn btn-primary" type="submit">${icon('check')} ${editing ? 'Save changes' : 'Record vessel call'}</button></div>
     </div>
   </form>
-  ${dl('dl-ports', lk.ports)}${dl('dl-flags', lk.flags)}${dl('dl-agents', lk.agents)}`);
+  ${dl('dl-ports', lk.ports)}`);
 
   const f = $('#cf', main);
   const typeInfo = () => lk.vessel_types.find((v) => v.name === f.vessel_type.value);
@@ -82,6 +86,10 @@ export async function callForm(main, { id }) {
     $('#rotprev', f).textContent = editing && rotLocked ? c.rotation_no
       : !t ? '-' : manual ? `${year}/${t.rotation_class}/${f.rotation_seq.value || '?'}` : editing && t.rotation_class === c.rotation_class && year === String(c.rotation_year) ? c.rotation_no : `${year}/${t.rotation_class}/next`;
     if (f.departure_date) f.departure_date.min = f.arrival_date.value;
+    f.estimated_departure.min = f.arrival_date.value;
+    // A vessel recorded after it has already left needs no EDD.
+    const needEdd = !(f.departure_date && f.departure_date.value);
+    f.estimated_departure.required = needEdd; $('#eddreq', f).hidden = !needEdd;
     // Live data check, same rule as the workbook's "Data Check" column
     const d = formData(f);
     const missing = [['flag', 'Flag'], ['crew', 'Crew'], ['master', 'Master'], ['last_port', 'Last port'], ['boarding_officer_id', 'Boarding officer'], ['next_port', 'Next port'], ['cargo', 'Cargo'], ['agent', 'Shipping agent']].filter(([k]) => !String(d[k] ?? '').trim()).map(([, l]) => l);
@@ -89,10 +97,17 @@ export async function callForm(main, { id }) {
     if (missing.length) issues.push(`Still to complete: ${missing.join(', ')}`);
     if (d.departure_date && !d.clearance_officer_id) issues.push('A departed vessel needs a clearance officer');
     if (d.departure_date && d.arrival_date && d.departure_date < d.arrival_date) issues.push('Departure is before arrival');
+    if (d.estimated_departure && d.arrival_date && d.estimated_departure < d.arrival_date) issues.push('Estimated departure is before arrival');
     if (Number(d.net_tonnage) > Number(d.gross_tonnage) && d.gross_tonnage) issues.push('Net tonnage is greater than gross tonnage');
     $('#dcheck', f).innerHTML = String(issues.length ? html`<span class="dc-warn">${icon('alert')} Data check: ${issues.join(' · ')}</span>` : html`<span class="dc-ok">${icon('check')} Data check OK</span>`);
   }
   f.addEventListener('input', refresh); f.addEventListener('change', refresh); refresh();
+  let lastAgent = f.agent.value;
+  f.agent.addEventListener('change', () => {
+    if (f.agent.value !== NEW) { lastAgent = f.agent.value; return; }
+    f.agent.value = lastAgent;
+    newAgentDialog((name) => { setOption(f.agent, name, NEW); lastAgent = name; refresh(); });
+  });
 
   // Vessel registry lookup
   const vs = $('#vsearch', f); const vr = $('#vresults', f);
@@ -110,7 +125,7 @@ export async function callForm(main, { id }) {
     });
     const pick = (li) => {
       const v = found[Number(li.dataset.i)]; if (!v) return;
-      const set = (n, val) => { if (val != null && val !== '' && f[n]) f[n].value = val; };
+      const set = (n, val) => { if (val != null && val !== '' && f[n]) { if (f[n].tagName === 'SELECT') setOption(f[n], val, NEW); else f[n].value = val; } };
       set('vessel_type', v.vessel_type); set('vessel_name', v.name); set('imo', v.imo); set('flag', v.flag);
       set('gross_tonnage', v.gross_tonnage); set('net_tonnage', v.net_tonnage); set('master', v.last_master); set('agent', v.last_agent); set('crew', v.last_crew); set('cargo', v.last_cargo);
       vr.hidden = true; vs.value = ''; refresh(); toast(`Filled in from ${v.name}'s last call. Check that the master and crew are still correct.`);
@@ -156,6 +171,36 @@ export async function callForm(main, { id }) {
   });
 }
 
+// Flags and agents come from admin-managed lists. A value that has since been deactivated stays selectable
+// on the record that already uses it.
+const NEW = '__new';
+const listOptions = (items, cur, blank) => {
+  const names = items.filter((x) => x.active || x.name === cur).map((x) => x.name);
+  if (cur && !names.includes(cur)) names.push(cur);
+  return options(names, cur, { blank });
+};
+function setOption(sel, value, before) {
+  if (![...sel.options].some((o) => o.value === value)) {
+    const o = new Option(value, value); const ref = before && [...sel.options].find((x) => x.value === before);
+    sel.insertBefore(o, ref || null);
+  }
+  sel.value = value;
+}
+function newAgentDialog(done) {
+  openDialog('Add a shipping agent', html`
+    <label>Agent's name<input name="name" required class="caps" autocomplete="off" placeholder="e.g. CARIBBEAN SHIPPING AGENCY"></label>
+    <p class="help">Check the list first: if the agent is already there under a slightly different spelling, that entry is used instead.
+      Administrators can correct or merge names under Lists &amp; settings.</p>`, {
+    submitLabel: 'Add agent',
+    onSubmit: async (f) => {
+      const name = await api.send('POST', '/api/agents', { name: f.name.value });
+      S.lookups = await api.get('/api/lookups');
+      toast(name === f.name.value.trim().toUpperCase().replace(/\s+/g, ' ') ? `${name} added to the list.` : `Already on the list as ${name}.`, 'success');
+      done(name); return true;
+    },
+  });
+}
+
 // ============================================================ DIALOGS
 export function departureDialog(c, done) {
   openDialog(`Record departure: ${c.vessel_name}`, html`
@@ -180,7 +225,7 @@ export function extensionDialog(c, done) {
     <p class="muted">${c.rotation_no} · ${c.vessel_name} · ${c.extension_count} extension${c.extension_count === 1 ? '' : 's'} so far</p>
     <div class="fgrid">
       <label>Original expiry<input name="original_expiry" type="date" required value="${c.latest_expiry || ''}" ${c.latest_expiry ? raw('readonly') : ''}>
-        <small class="help">${c.latest_expiry ? 'Taken from the previous extension' : 'Expiry of the initial clearance'}</small></label>
+        <small class="help">${c.stay_basis === 'EXTENSION' ? 'Taken from the previous extension' : c.stay_basis === 'EDD' ? 'The estimated departure date' : 'Expiry of the initial clearance'}</small></label>
       <label>New expiry<input name="new_expiry" type="date" required min="${c.latest_expiry || c.arrival_date}"></label>
       <label class="span2">Reason<select name="reason" required>${options(S.lookups.extension_reasons.map((r) => r.name), '', { blank: 'Select reason…' })}</select></label>
       <label class="span2">Remarks<textarea name="remarks" rows="2"></textarea></label>

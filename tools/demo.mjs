@@ -67,16 +67,19 @@ const V = [
   ['Pleasure Vessel / Yacht', 'WINDSONG', '1020456', 'CANADA', 'SAN PEDRO YACHT SERVICES', 22, 9, 2, 'MARK TREMBLAY', 'GUANAJA, HONDURAS', 'Ballast / No Cargo', 'SPR'],
   ['Ro-Ro Vessel', 'AUTO EXPRESS', '9388120', 'MALTA', 'CARIBBEAN SHIPPING AGENCY', 14200, 7300, 19, 'IVAN PETROV', 'MIAMI, UNITED STATES OF AMERICA', 'Vehicles / Ro-Ro', 'BZE'],
 ];
+// Agents are a reference list: put the demo agents on it.
+await db.query('insert into shipping_agents(name) select unnest($1::text[]) on conflict do nothing', [[...new Set(V.map((v) => v[4]))]]);
 // Station officer and supervisor for each station (officers record; supervisors verify and approve).
 const crew = { BZE: ['jreyes', 'jflowers'], BTV: ['admin', 'admin'], BGC: ['admin', 'admin'], PG: ['admin', 'admin'], SPR: ['mcastillo', 'rnunez'] };
 let crg = 5690;
+// edd: estimated departure, in days from today (negative = already passed). Defaults to the actual stay.
 async function call(v, arrivedAgo, stayDays, opts = {}) {
   const [type, name, imo, flag, agent, gt, nt, crewN, master, last, cargo, st] = v;
   const [officer, supervisor] = crew[st];
   const r = await as(officer, 'select create_call($1) as id', [JSON.stringify({ vessel_type: type, rotation_seq: ++crg, station_code: st,
     voyage_no: String(1000 + arrivedAgo), vessel_name: name, imo, flag, agent, gross_tonnage: gt, net_tonnage: nt, crew: crewN,
     passengers: type === 'Cruise Ship' ? 2100 + (arrivedAgo % 7) * 110 : 0, master, last_port: last, next_port: opts.noNext ? null : last,
-    arrival_date: day(arrivedAgo), cargo, officer_report: { anchorage_time: '07:30', boarding_time: '08:15', health_official: 'K. BENNETT',
+    arrival_date: day(arrivedAgo), estimated_departure: day(opts.edd != null ? -opts.edd : arrivedAgo - (stayDays ?? 3)), cargo, officer_report: { anchorage_time: '07:30', boarding_time: '08:15', health_official: 'K. BENNETT',
       pilot_name: 'L. MARIN', fumigated: 'NO', rummaged: 'YES', report_remarks: 'ALL CLEAR' } })]);
   if (stayDays != null) {
     await as(officer, 'select update_call($1, $2)', [r.id, JSON.stringify({ departure_date: day(Math.max(arrivedAgo - stayDays, 0)), clearance_officer_id: id[officer] })]);
@@ -91,16 +94,22 @@ for (let m = 330; m > 20; m -= 9) {
   if (v[0] === 'Liveaboard Vessel') continue;
   await call(v, m, v[0] === 'Cruise Ship' ? 0 : 2 + (m % 5), { verify: m > 60 });
 }
-await call(V[0], 12, 3); await call(V[4], 9, 0); await call(V[1], 6, 2); await call(V[11], 4, null); await call(V[2], 3, null); await call(V[9], 2, null, { noNext: true });
-const atomic = await call(V[6], 120, null);                    // liveaboard, 3 extensions, overdue -> URGENT
+await call(V[0], 12, 3); await call(V[4], 9, 0); await call(V[1], 6, 2);
+await call(V[11], 4, null, { edd: 12 });                       // within its stay
+await call(V[2], 3, null, { edd: 2 });                         // EDD in 2 days -> ending soon
+await call(V[9], 2, null, { noNext: true, edd: 20 });
+const atomic = await call(V[6], 120, null, { edd: -105 });     // liveaboard, 3 extensions, overdue -> URGENT
 await grant('rnunez', atomic, day(105), day(75), 'Liveaboard'); await grant('rnunez', atomic, day(75), day(45), 'Liveaboard'); await grant('rnunez', atomic, day(45), day(10), 'Liveaboard');
-const esprit = await call(V[5], 40, null);                     // overdue after one extension
+const esprit = await call(V[5], 40, null, { edd: -26 });       // overdue after one extension
 await grant('rnunez', esprit, day(26), day(4), 'Awaiting Repairs / Parts');
-const runner = await call(V[7], 25, null);                     // expiring soon
+const runner = await call(V[7], 25, null, { edd: -15 });       // extended, ending soon
 await grant('admin', runner, day(15), day(-3), 'Weather');
-const windsong = await call(V[10], 48, null);                  // long stay, with a pending request from the officer
+const windsong = await call(V[10], 48, null, { edd: -1 });     // EDD passed yesterday, extension request pending
 await grant('mcastillo', windsong, day(1), day(-30), 'Crew Health and Safety Emergency');
-await call(V[8], 52, null);                                    // long stay at Punta Gorda
+await call(V[8], 52, null, { edd: -20 });                      // EDD passed, no extension -> overdue
+// A call recorded before EDDs existed, with no extension: the old long-stay rule still applies.
+const legacy = await call(V[3], 60, null, { edd: -50 });
+await db.query('update calls set estimated_departure = null where id = $1', [legacy]);
 await db.end();
 console.log(`Demo data loaded. Accounts (password ${PW}):`);
 for (const [u, , , r, s] of USERS) console.log(`  ${`${u}@${DOMAIN}`.padEnd(32)} ${r.padEnd(13)} ${s || 'all stations'}`);

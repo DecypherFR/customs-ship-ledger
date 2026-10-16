@@ -54,7 +54,7 @@ export const icon = (name, cls = '') => raw(`<svg class="ico ${cls}" viewBox="0 
 // ---- status chips: colour + icon + label, never colour alone ----
 const CHIP = {
   'IN PORT': ['info', 'anchor'], DEPARTED: ['muted', 'out'], OVERDUE: ['critical', 'alert'], 'EXPIRING SOON': ['warning', 'clock'],
-  'LONG STAY': ['serious', 'clock'], 'WITHIN EXTENSION': ['good', 'check'], 'NO EXTENSION': ['muted', 'anchor'],
+  'LONG STAY': ['serious', 'clock'], 'WITHIN EXTENSION': ['good', 'check'], 'WITHIN STAY': ['good', 'check'], 'NO EXTENSION': ['muted', 'anchor'],
   PENDING: ['warning', 'clock'], APPROVED: ['good', 'check'], REJECTED: ['critical', 'x'], VERIFIED: ['good', 'lock'],
   OPEN: ['serious', 'folder'], 'IN PROGRESS': ['warning', 'folder'], REFERRED: ['info', 'folder'], CLOSED: ['muted', 'check'],
   'PENDING SYNC': ['warning', 'cloudoff'],

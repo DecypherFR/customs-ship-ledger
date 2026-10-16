@@ -30,6 +30,7 @@ before(async () => {
   await mk('admin', 'admin', null); await mk('off', 'officer', 'BZE'); await mk('off2', 'officer', 'SPR');
   await mk('sup', 'supervisor', 'BZE'); await mk('sup2', 'supervisor', 'BZE'); await mk('mgmt', 'management', null);
   await mk('inv', 'investigator', null); await mk('newbie', 'officer', 'BZE', { must: true }); await mk('gone', 'officer', 'BZE', { active: false });
+  await db.query("insert into shipping_agents(name) values ('SAN PEDRO YACHT SERVICES')");
 });
 after(async () => {
   await db.end();
@@ -57,8 +58,10 @@ async function as(who, sql, params = []) {
 const rpc = (who, fn, ...args) => as(who, `select public.${fn}(${args.map((_, i) => `$${i + 1}`).join(',')}) as r`, args.map((a) => (a && typeof a === 'object' ? JSON.stringify(a) : a)))
   .then((r) => (r.status === 200 ? { ...r, data: r.rows[0].r } : r));
 const call = async (who, id) => (await as(who, 'select * from call_overview where id = $1', [id])).rows[0];
-const arrival = { vessel_name: 'Sea Esprit', imo: '1018822', flag: 'usa', agent: 'agent', gross_tonnage: 48, net_tonnage: 19, crew: 3, passengers: 0,
-  master: 'John Carver', last_port: 'Isla Mujeres', next_port: 'Roatan', cargo: 'Ballast / No Cargo' };
+// Today is pinned to 2026-10-15. Flag and agent are typed in lower case on purpose: names are stored in capitals.
+const arrival = { vessel_name: 'Sea Esprit', imo: '1018822', flag: 'united states of america', agent: 'San Pedro Yacht Services', gross_tonnage: 48,
+  net_tonnage: 19, crew: 3, passengers: 0, master: 'John Carver', last_port: 'Isla Mujeres', next_port: 'Roatan', cargo: 'Ballast / No Cargo',
+  estimated_departure: '2026-10-30' };
 const create = async (who, body) => { const r = await rpc(who, 'create_call', body); return r.status === 200 ? { ...r, data: await call(who, r.data) } : r; };
 
 test('anonymous users see nothing and signed-in users cannot write tables directly', async () => {
@@ -100,10 +103,14 @@ test('validation: departure before arrival, future arrival, missing clearance of
   assert.equal((await rpc('off', 'create_call', { ...b, departure_date: '2026-10-11' })).field, 'clearance_officer_id');
   assert.equal((await rpc('off', 'create_call', { ...b, crew: 'many' })).status, 400);
   assert.equal((await rpc('off', 'create_call', { ...b, cargo: 'Gold' })).field, 'cargo');
+  assert.equal((await rpc('off', 'create_call', { ...b, estimated_departure: '' })).field, 'estimated_departure', 'a vessel in port needs an EDD');
+  assert.equal((await rpc('off', 'create_call', { ...b, estimated_departure: '2026-10-09' })).field, 'estimated_departure', 'EDD before arrival');
+  assert.equal((await rpc('off', 'create_call', { ...b, vessel_name: 'Late Entry', imo: '', estimated_departure: '', departure_date: '2026-10-11', clearance_officer_id: users.off })).status, 200,
+    'a call recorded after the vessel left needs no EDD');
 });
 
 test('data check flags incomplete records like the workbook', async () => {
-  const r = await create('off', { vessel_type: 'Other', vessel_name: 'Mystery', arrival_date: '2026-10-12' });
+  const r = await create('off', { vessel_type: 'Other', vessel_name: 'Mystery', arrival_date: '2026-10-12', estimated_departure: '2026-10-20' });
   assert.equal(r.status, 200);
   assert.match(r.data.data_check[0], /^Missing: Flag/);
 });
@@ -128,17 +135,20 @@ test('read-only roles cannot write; audit only for management and admin', async 
 });
 
 test('extensions: request, approval by another supervisor, overstay status and investigation cases', async () => {
-  const c = (await create('off', { ...arrival, vessel_name: 'Long Stayer', imo: '7777777', vessel_type: 'Pleasure Vessel / Yacht', arrival_date: '2026-08-01' })).data;
-  assert.equal(c.overstay_status, 'LONG STAY');
-  assert.equal((await rpc('off', 'add_extension', c.id, { original_expiry: '2026-08-15', new_expiry: '2026-09-15', reason: 'Weather' })).status, 200);
+  const c = (await create('off', { ...arrival, vessel_name: 'Long Stayer', imo: '7777777', vessel_type: 'Pleasure Vessel / Yacht', arrival_date: '2026-08-01',
+    estimated_departure: '2026-08-15' })).data;
+  assert.equal(c.overstay_status, 'OVERDUE', 'no extension: the stay ended at the EDD'); assert.equal(c.days_overdue, 61); assert.equal(c.stay_basis, 'EDD');
+  assert.equal((await rpc('off', 'add_extension', c.id, { new_expiry: '2026-09-15', reason: 'Weather' })).status, 200);
   const [req] = (await as('off', 'select * from extensions where call_id=$1', [c.id])).rows;
-  assert.equal(req.status, 'PENDING');
+  assert.equal(req.status, 'PENDING'); assert.equal(req.original_expiry.toISOString().slice(0, 10), '2026-08-15', 'first extension starts from the EDD');
+  assert.equal((await call('off', c.id)).overstay_status, 'OVERDUE', 'a pending request does not extend the stay');
   assert.equal((await rpc('off', 'decide_extension', req.id, 'APPROVED', null)).status, 403);
   assert.equal((await rpc('sup', 'decide_extension', req.id, 'REJECTED', null)).field, 'note');
   assert.equal((await rpc('sup', 'decide_extension', req.id, 'APPROVED', null)).status, 200);
   assert.equal((await rpc('sup', 'decide_extension', req.id, 'APPROVED', null)).status, 409);
   let d = await call('sup', c.id);
   assert.equal(d.extension_count, 1); assert.equal(d.overstay_status, 'OVERDUE'); assert.equal(d.days_overdue, 30); assert.equal(d.priority, 'OVERDUE - FOLLOW UP');
+  assert.equal(d.stay_basis, 'EXTENSION');
   assert.equal((await rpc('sup', 'add_extension', c.id, { new_expiry: '2026-09-01', reason: 'Weather' })).field, 'new_expiry');
   for (const to of ['2026-10-01', '2026-10-10']) assert.equal((await rpc('sup', 'add_extension', c.id, { new_expiry: to, reason: 'Weather' })).status, 200);
   const exts = (await as('sup', 'select * from extensions where call_id=$1 order by id', [c.id])).rows;
@@ -153,6 +163,60 @@ test('extensions: request, approval by another supervisor, overstay status and i
   assert.deepEqual(k, { status: 'CLOSED', n: 1 });
   assert.equal((await as('mgmt', 'select * from cases where call_id=$1', [c.id])).rows.length, 1, 'management can view cases');
   assert.equal((await rpc('mgmt', 'save_case', c.id, { status: 'OPEN' })).status, 403, 'but cannot change them');
+});
+
+test('the EDD is the approved stay until an extension replaces it; only supervisors can move it', async () => {
+  const mk = (name, edd) => create('off', { ...arrival, vessel_name: name, imo: '', vessel_type: 'Other', arrival_date: '2026-10-01', estimated_departure: edd });
+  const within = (await mk('Within', '2026-10-30')).data;
+  assert.equal(within.overstay_status, 'WITHIN STAY'); assert.equal(within.latest_expiry.toISOString().slice(0, 10), '2026-10-30'); assert.equal(within.days_to_expiry, 15);
+  assert.equal((await mk('Soon', '2026-10-18')).data.overstay_status, 'EXPIRING SOON');
+  assert.equal((await mk('Today', '2026-10-15')).data.overstay_status, 'EXPIRING SOON', 'the stay includes the EDD itself');
+  const late = (await mk('Late', '2026-10-10')).data;
+  assert.equal(late.overstay_status, 'OVERDUE'); assert.equal(late.days_overdue, 5);
+  const moved = await rpc('off', 'update_call', late.id, { estimated_departure: '2026-10-25' });
+  assert.equal(moved.status, 403); assert.equal(moved.field, 'estimated_departure');
+  assert.equal((await rpc('off', 'update_call', late.id, { remarks: 'other fields still editable' })).status, 200);
+  assert.equal((await rpc('sup', 'update_call', late.id, { estimated_departure: '2026-10-25' })).status, 200);
+  assert.equal((await call('sup', late.id)).overstay_status, 'WITHIN STAY');
+  // Calls recorded before EDDs existed keep the old rule.
+  await db.query('update calls set estimated_departure = null where id = $1', [within.id]);
+  assert.equal((await call('off', within.id)).overstay_status, 'NO EXTENSION');
+  await db.query("update calls set arrival_date = '2026-08-01' where id = $1", [within.id]);
+  const legacy = await call('off', within.id);
+  assert.equal(legacy.overstay_status, 'LONG STAY'); assert.equal(legacy.priority, 'REVIEW - NO EDD OR EXTENSION ON FILE');
+  assert.equal((await rpc('off', 'update_call', within.id, { remarks: 'needs an EDD now' })).field, 'estimated_departure');
+  assert.equal((await rpc('off', 'update_call', within.id, { estimated_departure: '2026-10-20' })).status, 200, 'an officer may fill in a missing EDD');
+});
+
+test('shipping agents and flags come from standard lists', async () => {
+  const b = { ...arrival, vessel_type: 'Other', arrival_date: '2026-10-10' };
+  assert.equal((await rpc('off', 'create_call', { ...b, flag: 'USA' })).field, 'flag');
+  assert.equal((await rpc('off', 'create_call', { ...b, agent: 'Unknown Agency' })).field, 'agent');
+  // Officers add agents; a different spelling of a listed agent returns the listed name.
+  assert.equal((await rpc('off', 'add_agent', '  Marine   Supply Co. ')).data, 'MARINE SUPPLY CO.');
+  assert.equal((await rpc('off', 'add_agent', 'marine supply co')).data, 'MARINE SUPPLY CO.');
+  assert.equal((await rpc('off', 'add_agent', 'Bay Shipping & Logistics')).data, 'BAY SHIPPING & LOGISTICS');
+  assert.equal((await rpc('off', 'add_agent', 'Bay Shipping and Logistics')).data, 'BAY SHIPPING & LOGISTICS');
+  assert.equal((await rpc('mgmt', 'add_agent', 'X')).status, 403);
+  assert.equal((await rpc('off', 'save_list', 'flags', [{ name: 'ATLANTIS' }])).status, 403, 'only admins edit the lists');
+  const one = (await create('off', { ...b, vessel_name: 'Agent One', imo: '3330001', agent: 'marine supply co.' })).data;
+  const two = (await create('off', { ...b, vessel_name: 'Agent Two', imo: '3330002', agent: 'Bay Shipping & Logistics' })).data;
+  assert.equal(one.agent, 'MARINE SUPPLY CO.');
+  // Renaming corrects every call; renaming to an existing name merges.
+  assert.equal((await rpc('admin', 'save_list', 'shipping_agents', [{ old: 'MARINE SUPPLY CO.', name: 'Marine Supply Company', active: true }])).status, 200);
+  assert.equal((await call('off', one.id)).agent, 'MARINE SUPPLY COMPANY');
+  assert.equal((await rpc('admin', 'save_list', 'shipping_agents', [{ old: 'BAY SHIPPING & LOGISTICS', name: 'MARINE SUPPLY COMPANY', active: true }])).status, 200);
+  assert.equal((await call('off', two.id)).agent, 'MARINE SUPPLY COMPANY');
+  assert.equal((await as('off', "select * from shipping_agents where name = 'BAY SHIPPING & LOGISTICS'")).rows.length, 0);
+  // Flags: merging a variant moves calls and the vessel registry.
+  await db.query("insert into flags(name) values ('U.S.A.')");
+  const v = (await create('off', { ...b, vessel_name: 'Flag Variant', imo: '3330003', flag: 'U.S.A.' })).data;
+  assert.equal((await rpc('admin', 'save_list', 'flags', [{ old: 'U.S.A.', name: 'UNITED STATES OF AMERICA', active: true }])).status, 200);
+  assert.equal((await call('off', v.id)).flag, 'UNITED STATES OF AMERICA');
+  assert.equal((await as('off', "select flag from vessels where imo = '3330003'")).rows[0].flag, 'UNITED STATES OF AMERICA');
+  // Deactivated entries disappear from the pick-list but stay on existing calls.
+  assert.equal((await rpc('admin', 'save_list', 'flags', [{ old: 'CANADA', name: 'CANADA', active: false }])).status, 200);
+  assert.equal((await as('off', "select active from flags where name = 'CANADA'")).rows[0].active, false);
 });
 
 test('nobody approves their own request', async () => {

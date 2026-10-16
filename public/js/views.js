@@ -18,8 +18,8 @@ export async function dashboard(main, { params }) {
   const scopeLabel = d.station ? stationName(d.station) : 'All stations';
   const attn = [
     ['Overdue, still in port', a.overdue, 'critical', 'alert', '#/overstay', a.urgent ? `${a.urgent} urgent (3+ extensions)` : 'Extension expired', 'overstay.view'],
-    ['Extensions expiring soon', a.expiring_soon, 'warning', 'clock', '#/overstay', `Within ${S.lookups.settings.expiring_soon_days} days`, 'overstay.view'],
-    ['Long stay, no extension', a.long_stay, 'serious', 'clock', '#/overstay', `In port over ${S.lookups.settings.long_stay_days} days`, 'overstay.view'],
+    ['Approved stay ending soon', a.expiring_soon, 'warning', 'clock', '#/overstay', `Within ${S.lookups.settings.expiring_soon_days} days`, 'overstay.view'],
+    ['Long stay, no EDD', a.long_stay, 'serious', 'clock', '#/overstay', `No EDD or extension, in port over ${S.lookups.settings.long_stay_days} days`, 'overstay.view'],
     ['Extensions awaiting decision', a.pending_extensions, 'warning', 'clock', '#/extensions', 'Supervisor approval', 'calls.read'],
     ['Records failing data check', a.data_check, 'serious', 'info', '#/calls?flag=datacheck', 'Missing or inconsistent fields', 'calls.read'],
     ['Departed, not yet verified', a.unverified_departed, 'info', 'lock', '#/calls?flag=unverified', 'Awaiting supervisor sign-off', 'calls.verify'],
@@ -142,7 +142,7 @@ export async function callList(main, { params }) {
       <td data-l="Rotation No."><a href="#/calls/${c.id}" class="mono">${c.rotation_no}</a></td>
       <td data-l="Vessel"><b>${c.vessel_name}</b><small class="sub">${c.flag || ''}<span class="m-only">${c.flag ? ' · ' : ''}${c.vessel_type}</span></small></td>
       <td data-l="Type">${c.vessel_type}</td><td data-l="Station">${c.station_name}</td>
-      <td data-l="Arrived">${fmtDate(c.arrival_date)}</td><td data-l="Departed">${fmtDate(c.departure_date) || '-'}</td>
+      <td data-l="Arrived">${fmtDate(c.arrival_date)}</td><td data-l="Departed">${c.departure_date ? fmtDate(c.departure_date) : c.estimated_departure ? html`<span class="muted" title="Estimated departure">Est. ${fmtDate(c.estimated_departure)}</span>` : '-'}</td>
       <td class="num" data-l="Crew">${c.crew ?? ''}</td><td class="num" data-l="Ext.">${c.extension_count}${c.pending_extensions ? html` <small class="sub">+${c.pending_extensions} pending</small>` : ''}</td>
       <td data-l="Status">${chip(c.status)} ${['OVERDUE', 'EXPIRING SOON', 'LONG STAY'].includes(c.overstay_status) ? chip(c.overstay_status) : ''}</td>
       <td data-l="Flags" class="flags">${c.verified_at ? html`<span title="Verified by ${c.verified_by_name}" class="flag-ok">${icon('lock')}<span class="sr">Verified</span></span>` : ''}${c.data_check ? html`<span title="${c.data_check.join('; ')}" class="flag-warn">${icon('alert')}<span class="sr">Data check: ${c.data_check.join('; ')}</span></span>` : ''}</td>
@@ -183,7 +183,7 @@ export async function callDetail(main, { id }) {
   ${c.data_check ? html`<div class="note note-warn" role="status">${icon('alert')} <div><b>Data check:</b> ${c.data_check.join(' · ')}. ${canEdit ? html`<a href="#/calls/${c.id}/edit">Complete the record</a>` : ''}</div></div>` : ''}
   ${c.overstay_status === 'OVERDUE' ? html`<div class="note note-crit" role="alert">${icon('alert')} <div><b>${c.priority}.</b> Approved stay expired ${fmtDate(c.latest_expiry)}, ${c.days_overdue} day${c.days_overdue === 1 ? '' : 's'} overdue and no departure recorded.</div></div>` : ''}
   ${c.overstay_status === 'EXPIRING SOON' ? html`<div class="note note-warn">${icon('clock')} Approved stay ends ${fmtDate(c.latest_expiry)} (${c.days_to_expiry === 0 ? 'today' : `in ${c.days_to_expiry} day${c.days_to_expiry === 1 ? '' : 's'}`}).</div>` : ''}
-  ${c.overstay_status === 'LONG STAY' ? html`<div class="note note-warn">${icon('clock')} In port ${c.days_in_port} days with no extension on file.</div>` : ''}
+  ${c.overstay_status === 'LONG STAY' ? html`<div class="note note-warn">${icon('clock')} In port ${c.days_in_port} days with no estimated departure date or extension on file.</div>` : ''}
   <div class="grid-3">
     <section class="card"><h2>Vessel</h2><dl class="kv">
       <dt>Vessel type</dt><dd>${c.vessel_type}</dd><dt>IMO / Reg. No.</dt><dd class="mono">${c.imo || '-'}</dd><dt>Flag</dt><dd>${c.flag || '-'}</dd>
@@ -192,6 +192,8 @@ export async function callDetail(main, { id }) {
     <section class="card"><h2>Movement</h2><dl class="kv">
       <dt>Station</dt><dd>${c.station_name}</dd><dt>Voyage No.</dt><dd>${c.voyage_no || '-'}</dd>
       <dt>Last port</dt><dd>${c.last_port || '-'}</dd><dt>Arrived</dt><dd>${fmtDate(c.arrival_date)} · ${c.boarding_officer || '-'}</dd>
+      <dt>Estimated departure</dt><dd>${fmtDate(c.estimated_departure) || '-'}</dd>
+      ${c.departure_date ? '' : html`<dt>Approved stay until</dt><dd>${c.latest_expiry ? html`${fmtDate(c.latest_expiry)} <small class="sub">${c.stay_basis === 'EXTENSION' ? 'from the latest extension' : 'the estimated departure'}</small>` : '-'}</dd>`}
       <dt>Next port</dt><dd>${c.next_port || '-'}</dd><dt>Departed</dt><dd>${c.departure_date ? html`${fmtDate(c.departure_date)} · ${c.clearance_officer || '-'}` : html`<em>In port · day ${c.days_in_port}</em>`}</dd></dl></section>
     <section class="card"><h2>Cargo &amp; people</h2><dl class="kv">
       <dt>Cargo / operation</dt><dd>${c.cargo || '-'}</dd><dt>Crew</dt><dd>${c.crew ?? '-'}</dd><dt>Passengers</dt><dd>${c.passengers ?? '-'}</dd>
@@ -320,7 +322,7 @@ export async function overstayView(main, { params }) {
     <a class="kpi kpi-crit" href="#/overstay?show=OVERDUE"><span class="kpi-n">${count('OVERDUE')}</span><span class="kpi-l">${icon('alert')} Overdue vessels</span></a>
     <a class="kpi kpi-crit" href="#/overstay?show=OVERDUE"><span class="kpi-n">${urgent}</span><span class="kpi-l">${icon('alert')} Urgent: ${S.lookups.settings.urgent_extension_count}+ extensions</span></a>
     <a class="kpi kpi-warn" href="#/overstay?show=EXPIRING%20SOON"><span class="kpi-n">${count('EXPIRING SOON')}</span><span class="kpi-l">${icon('clock')} Expiring within ${S.lookups.settings.expiring_soon_days} days</span></a>
-    <a class="kpi kpi-warn" href="#/overstay?show=LONG%20STAY"><span class="kpi-n">${count('LONG STAY')}</span><span class="kpi-l">${icon('clock')} Long stay, no extension</span></a>
+    <a class="kpi kpi-warn" href="#/overstay?show=LONG%20STAY"><span class="kpi-n">${count('LONG STAY')}</span><span class="kpi-l">${icon('clock')} Long stay, no EDD or extension</span></a>
   </div>
   <div class="seg no-print" role="group" aria-label="Show">${[['', 'All'], ['OVERDUE', 'Overdue'], ['EXPIRING SOON', 'Expiring soon'], ['LONG STAY', 'Long stay'], ['CASES', 'With a case']].map(([v, l]) => html`<a href="#/overstay${v ? `?show=${encodeURIComponent(v)}` : ''}" class="${show === v ? 'on' : ''}">${l}</a>`)}</div>
   ${items.length ? html`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Rotation No.</th><th>Vessel</th><th>Station</th><th>Agent / Master</th><th>Arrived</th><th class="num">Ext.</th><th>Approved until</th><th class="num">Days</th><th>Status / priority</th><th>Case</th><th class="no-print"></th></tr></thead>

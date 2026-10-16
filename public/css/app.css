@@ -239,6 +239,9 @@ tr.inactive td { color: var(--ink-3); }
 .flag-ok { color: var(--good-ink); } .flag-warn { color: var(--serious-ink); margin-left: 4px; }
 .matrix .ok { color: var(--good-ink); }
 .tbl-edit td { padding: 4px 6px; }
+.ref-filter { margin: 4px 0 10px; }
+.ref-list { max-height: 420px; overflow-y: auto; }
+.ref-list thead th { position: sticky; top: 0; z-index: 1; }
 .tbl-edit input:not([type=checkbox]) { min-height: 34px; padding: 4px 8px; }
 .tbl-edit input[type=checkbox] { width: 18px; min-height: 18px; }
 
@@ -407,6 +410,7 @@ tr.inactive td { color: var(--ink-3); }
   .tbl-wrap .tbl.tbl-ledger td[data-l="Type"] { display: none; }
   .tbl-wrap .tbl.tbl-ledger td:is([data-l="Vessel"], [data-l="Flags"], [data-l="Status"], [data-l="Rotation No."], [data-l="Station"])::before { display: none; }
   .tbl-wrap .tbl.tbl-ledger td:is([data-l="Arrived"], [data-l="Departed"], [data-l="Crew"], [data-l="Ext."]) { grid-row: 4; margin-top: 4px; font-size: .9rem; font-variant-numeric: tabular-nums; }
+  .tbl-wrap .tbl.tbl-ledger td[data-l="Departed"] { white-space: normal; }
 
   .attn-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .attn { padding: 10px 12px; column-gap: 8px; }

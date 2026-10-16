@@ -96,15 +96,15 @@ const scope = () => (profile && ['officer', 'supervisor'].includes(profile.role)
 
 async function lookups() {
   const admin = profile && profile.role === 'admin';
-  const list = async (t) => check(await sb.from(t).select('*').order('sort')).filter((x) => admin || x.active);
-  const [stations, vessel_types, cargo_types, extension_reasons, settingsRows, people, values] = await Promise.all([
-    list('stations'), list('vessel_types'), list('cargo_types'), list('extension_reasons'),
+  const list = async (t) => check(await sb.from(t).select('*').order('sort').order('name')).filter((x) => admin || x.active);
+  const [stations, vessel_types, cargo_types, extension_reasons, shipping_agents, flags, settingsRows, people, values] = await Promise.all([
+    list('stations'), list('vessel_types'), list('cargo_types'), list('extension_reasons'), list('shipping_agents'), list('flags'),
     sb.from('settings').select('*').then(check), sb.from('profiles').select('id, initials, full_name, role, station_code, active').order('initials').then(check),
     rpc('lookup_values')]);
   const st = scope();
   const inScope = (p) => !st || !p.station_code || p.station_code === st;
   return {
-    stations, vessel_types, cargo_types, extension_reasons, ...values,
+    stations, vessel_types, cargo_types, extension_reasons, shipping_agents, flags, ...values,
     officers: people.filter((p) => ['officer', 'supervisor', 'admin'].includes(p.role) && inScope(p)),
     staff: people.filter((p) => p.active && ['investigator', 'supervisor', 'officer', 'admin'].includes(p.role) && inScope(p))
       .sort((a, b) => (b.role === 'investigator') - (a.role === 'investigator')),
@@ -224,6 +224,7 @@ const routes = [
   ['POST', /^\/api\/users\/([\w-]+)\/signin$/, (m, q, b) => adminFn({ action: 'create', ...b, link_profile_id: m[1] })],
   ['PUT', /^\/api\/users\/([\w-]+)$/, (m, q, b) => rpc('admin_save_profile', { p_id: m[1], p: b })],
   ['POST', /^\/api\/users\/([\w-]+)\/reset-password$/, (m, q, b) => adminFn({ action: 'reset_password', user_id: m[1], password: b.password })],
+  ['POST', /^\/api\/agents$/, (m, q, b) => rpc('add_agent', { p_name: b.name || '' })],
   ['PUT', /^\/api\/lists\/(\w+)$/, async (m, q, b) => { await rpc('save_list', { p_list: m[1], p_items: b.items || [] }); return lookups(); }],
   ['PUT', /^\/api\/settings$/, async (m, q, b) => { await rpc('save_settings', { p: b }); return lookups().then((l) => l.settings); }],
   ['POST', /^\/api\/import$/, (m, q, b) => rpc('import_ledger', { p: b })],
@@ -301,12 +302,12 @@ export const api = {
     const head = ['Vessel Type', 'Rotation Classification', 'Rotation Sequence No.', 'Station', 'Voyage Number', 'Vessel Name', 'IMO / Registration No.',
       'Flag / Nationality', 'Shipping Agent', 'Gross Tonnage', 'Net Tonnage', 'Crew', 'Passengers', 'Master', 'Last Port', 'Arrival Date',
       'Boarding Officer', 'Next Port', 'Departure Date', 'Clearance Officer', 'Cargo / Operation', 'Extension Count', 'Status', 'Remarks',
-      'Reporting Month', 'Reporting Year', 'Data Check', 'Full Rotation No.', 'Latest Extension Expiry', 'Overstay Status', 'Verified By'];
+      'Reporting Month', 'Reporting Year', 'Data Check', 'Full Rotation No.', 'Approved Stay Until', 'Overstay Status', 'Verified By', 'Estimated Departure'];
     saveCsv(`vessel-movements-${q.month || q.year || 'all'}.csv`, [head, ...calls.map((c) => [c.vessel_type, `${c.rotation_year}/${c.rotation_class}/`, c.rotation_seq,
       c.station_name, c.voyage_no, c.vessel_name, c.imo, c.flag, c.agent, c.gross_tonnage, c.net_tonnage, c.crew, c.passengers, c.master, c.last_port,
       c.arrival_date, c.boarding_officer, c.next_port, c.departure_date, c.clearance_officer, c.cargo, c.extension_count, c.status, c.remarks,
       c.arrival_date.slice(0, 7), c.arrival_date.slice(0, 4), c.data_check ? c.data_check.join('; ') : 'OK', c.rotation_no, c.latest_expiry,
-      c.overstay_status, c.verified_by_name])]);
+      c.overstay_status, c.verified_by_name, c.estimated_departure])]);
     await rpc('log_export', { p_what: `${calls.length} vessel calls${q.month ? ` for ${q.month}` : ''}` }).catch(() => {});
   },
 };

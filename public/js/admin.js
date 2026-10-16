@@ -75,6 +75,43 @@ export async function usersView(main) {
   }));
 }
 
+// Shipping agents and flags: long alphabetical lists. Editing a name renames it on every vessel call;
+// giving it the exact name of another entry merges the two.
+const refRow = (it = { name: '', active: true }) => html`<tr data-old="${it.name}" data-was="${it.active ? 1 : 0}">
+  <td><input data-k="name" value="${it.name}" class="caps" aria-label="Name"></td>
+  <td class="c"><input type="checkbox" data-k="active" ${it.active ? raw('checked') : ''} aria-label="Active"></td></tr>`;
+const refCard = (key, title, items, note) => html`<section class="card section" data-ref="${key}">
+  <div class="card-head"><h2>${title} <small>${items.length}</small></h2>
+    <div class="actions"><button class="btn btn-sm" data-addrow>${icon('plus')} Add</button><button class="btn btn-sm btn-primary" data-savelist>Save</button></div></div>
+  <p class="help">${note} To correct a spelling on every vessel call, edit the name and save. To merge two entries, change one to the exact name of the other.</p>
+  <label class="f-search ref-filter">${icon('search')}<input type="search" data-filter placeholder="Find…" aria-label="Find in ${title}"></label>
+  <div class="tbl-wrap ref-list"><table class="tbl tbl-compact tbl-edit"><thead><tr><th>Name</th><th class="c">Active</th></tr></thead>
+  <tbody>${items.map((it) => refRow(it))}</tbody></table></div></section>`;
+function wireRefCard(card, reload) {
+  const rows = () => $$('tbody tr', card);
+  $('[data-filter]', card).addEventListener('input', (e) => {
+    const q = e.target.value.trim().toUpperCase();
+    rows().forEach((tr) => { tr.hidden = !!q && !tr.dataset.old.includes(q) && !$('[data-k=name]', tr).value.toUpperCase().includes(q); });
+  });
+  $('[data-addrow]', card).addEventListener('click', () => {
+    $('[data-filter]', card).value = ''; rows().forEach((tr) => { tr.hidden = false; });
+    $('tbody', card).insertAdjacentHTML('afterbegin', String(refRow())); $('tbody tr input', card).focus();
+  });
+  $('[data-savelist]', card).addEventListener('click', async () => {
+    const norm = (v) => v.trim().toUpperCase().replace(/\s+/g, ' ');
+    const items = rows().map((tr) => ({ old: tr.dataset.old, name: norm($('[data-k=name]', tr).value), active: $('[data-k=active]', tr).checked, was: tr.dataset.was === '1' }))
+      .filter((it) => it.name && (it.name !== it.old || it.active !== it.was));
+    if (!items.length) { toast('Nothing to save.'); return; }
+    const existing = new Set(rows().map((tr) => tr.dataset.old).filter(Boolean));
+    const merges = items.filter((it) => it.old && it.name !== it.old && existing.has(it.name));
+    if (merges.length && !confirm(`This merges:\n${merges.map((m) => `  ${m.old} → ${m.name}`).join('\n')}\n\nEvery vessel call using the first name will use the second. Continue?`)) return;
+    try {
+      S.lookups = await api.send('PUT', `/api/lists/${card.dataset.ref}`, { items: items.map(({ old, name, active }) => ({ old, name, active })) });
+      toast('List saved.', 'success'); reload();
+    } catch (err) { toast(err.message, 'error'); }
+  });
+}
+
 export async function settingsView(main) {
   S.lookups = await api.get('/api/lookups');
   const lk = S.lookups; const s = lk.settings;
@@ -95,13 +132,15 @@ export async function settingsView(main) {
   main.innerHTML = String(html`
   <div class="page-head"><div><h1>Lists &amp; settings</h1><p class="muted">Changes apply immediately for every user. Deactivate rather than delete so history stays intact.</p></div></div>
   <section class="card section"><h2>Rules</h2><form id="sf" class="fgrid" novalidate>
-    <label>Warn when an extension expires within (days)<input name="expiring_soon_days" type="number" min="1" value="${s.expiring_soon_days}"></label>
-    <label>Flag in-port vessels with no extension after (days)<input name="long_stay_days" type="number" min="1" value="${s.long_stay_days}"></label>
+    <label>Warn when an approved stay (EDD or extension) ends within (days)<input name="expiring_soon_days" type="number" min="1" value="${s.expiring_soon_days}"></label>
+    <label>Flag in-port vessels with no EDD or extension after (days)<input name="long_stay_days" type="number" min="1" value="${s.long_stay_days}"></label>
     <label>Mark overdue vessels URGENT at this many extensions<input name="urgent_extension_count" type="number" min="1" value="${s.urgent_extension_count}"></label>
     <label class="chk"><input type="checkbox" name="require_extension_approval" ${s.require_extension_approval === '1' ? raw('checked') : ''}> Officers' extension requests need supervisor approval</label>
     <label class="span2">Ship's Report footer<input name="office_footer" value="${s.office_footer}"></label>
     <p class="form-error span2" role="alert" hidden></p>
     <div class="span2"><button class="btn btn-primary">Save rules</button></div></form></section>
+  ${refCard('shipping_agents', 'Shipping agents', lk.shipping_agents, 'Officers can add a new agent while recording a call.')}
+  ${refCard('flags', 'Flags / nationalities', lk.flags, 'Only administrators can add to this list.')}
   ${Object.entries(LISTS).map(([k, [t, cols]]) => listCard(k, raw(t), lk[k], cols))}
   <section class="card section"><h2>Import from the Excel ledger</h2>
     <p>Convert the workbook with <code>python3 tools/ledger_to_json.py National_Shipping_Ledger.xlsx &gt; import.json</code>, then choose the JSON file here.
@@ -120,6 +159,7 @@ export async function settingsView(main) {
       try { S.lookups = await api.send('PUT', `/api/lists/${card.dataset.list}`, { items }); toast('List saved.', 'success'); } catch (err) { toast(err.message, 'error'); }
     });
   });
+  $$('[data-ref]', main).forEach((card) => wireRefCard(card, () => settingsView(main)));
   $('#imp', main).addEventListener('change', async (e) => {
     const file = e.target.files[0]; if (!file) return;
     const out = $('#impout', main);
