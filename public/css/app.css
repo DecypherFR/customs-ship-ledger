@@ -322,7 +322,7 @@ tr.inactive td { color: var(--ink-3); }
 .toast.out { opacity: 0; transform: translateY(8px); }
 
 /* ---------- login ---------- */
-.login { min-height: 100vh; display: grid; place-items: center; padding: 16px; background: linear-gradient(160deg, var(--navy) 0%, #071a31 100%); }
+.login { min-height: 100vh; min-height: 100dvh; width: 100%; max-width: none; display: grid; place-items: center; padding: 16px; background: linear-gradient(160deg, var(--navy) 0%, #071a31 100%); }
 .login-card { width: min(400px, 100%); background: var(--surface); border-radius: 16px; padding: 28px; display: grid; gap: 14px; box-shadow: 0 24px 60px rgb(0 0 0 / .35); }
 .login-card img { justify-self: center; }
 .login-card h1 { text-align: center; }
@@ -412,6 +412,12 @@ tr.inactive td { color: var(--ink-3); }
   .tbl-wrap .tbl.tbl-ledger td:is([data-l="Arrived"], [data-l="Departed"], [data-l="Crew"], [data-l="Ext."]) { grid-row: 4; margin-top: 4px; font-size: .9rem; font-variant-numeric: tabular-nums; }
   .tbl-wrap .tbl.tbl-ledger td[data-l="Departed"] { white-space: normal; }
 
+  /* Dashboard filters: two equal columns, labels on one line, Export under them (or beside the month). */
+  .page-head > #dfilter { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
+  #dfilter .f-inline { min-width: 0; }
+  #dfilter :is(input, select) { height: 44px; min-height: 44px; }
+  #dfilter > .btn { height: 44px; }
+  #dfilter > .btn:nth-child(3) { grid-column: 1 / -1; }
   .attn-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .attn { padding: 10px 12px; column-gap: 8px; }
   .attn-ico { width: 28px; height: 28px; }
