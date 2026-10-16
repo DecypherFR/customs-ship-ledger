@@ -177,7 +177,7 @@ function loginView() {
   document.body.innerHTML = String(html`
   <main class="login">
     <form class="login-card" id="login" novalidate>
-      ${logo(96)}
+      ${logo(120)}
       <h1>National Ships Ledger</h1>
       <p class="muted">Belize Customs &amp; Excise Department</p>
       <label>Email<input name="username" type="email" autocomplete="username" required autocapitalize="none" inputmode="email"></label>
