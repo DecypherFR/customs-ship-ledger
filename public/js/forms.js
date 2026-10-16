@@ -30,7 +30,7 @@ export async function callForm(main, { id }) {
       <div class="fgrid">
         <label class="span2">Vessel type <span class="req">*</span><select name="vessel_type" required ${rotLocked ? raw('disabled') : ''}>${options(lk.vessel_types.map((v) => v.name), c.vessel_type, { blank: 'Select vessel type…' })}</select></label>
         <label id="seqwrap" hidden>Rotation sequence No. <span class="req">*</span><input name="rotation_seq" inputmode="numeric" pattern="[0-9]*" value="${c.rotation_seq || ''}" ${rotLocked ? raw('disabled') : ''}><small class="help">Number supplied for this CRG call</small></label>
-        <div class="rot-preview" aria-live="polite"><span>Rotation No.</span><b class="mono" id="rotprev">—</b></div>
+        <div class="rot-preview" aria-live="polite"><span>Rotation No.</span><b class="mono" id="rotprev">-</b></div>
         <label class="span2">Vessel name <span class="req">*</span><input name="vessel_name" required value="${c.vessel_name || ''}" class="caps"></label>
         <label>IMO / Registration No.<input name="imo" value="${c.imo || ''}" class="caps mono"></label>
         <label>Flag / Nationality<input name="flag" list="dl-flags" value="${c.flag || ''}" class="caps"></label>
@@ -80,7 +80,7 @@ export async function callForm(main, { id }) {
     f.rotation_seq.required = !!manual;
     const year = (f.arrival_date.value || today()).slice(0, 4);
     $('#rotprev', f).textContent = editing && rotLocked ? c.rotation_no
-      : !t ? '—' : manual ? `${year}/${t.rotation_class}/${f.rotation_seq.value || '?'}` : editing && t.rotation_class === c.rotation_class && year === String(c.rotation_year) ? c.rotation_no : `${year}/${t.rotation_class}/next`;
+      : !t ? '-' : manual ? `${year}/${t.rotation_class}/${f.rotation_seq.value || '?'}` : editing && t.rotation_class === c.rotation_class && year === String(c.rotation_year) ? c.rotation_no : `${year}/${t.rotation_class}/next`;
     if (f.departure_date) f.departure_date.min = f.arrival_date.value;
     // Live data check, same rule as the workbook's "Data Check" column
     const d = formData(f);
@@ -104,7 +104,7 @@ export async function callForm(main, { id }) {
       timer = setTimeout(async () => {
         try { found = await api.get(`/api/vessels?q=${encodeURIComponent(vs.value.trim())}`); } catch { found = []; }
         vr.innerHTML = String(found.length ? html`${found.map((v, i) => html`<li role="option" tabindex="-1" data-i="${i}"><b>${v.name}</b> <span class="mono">${v.imo || ''}</span><small>${v.flag || ''} · ${v.vessel_type || ''} · ${v.calls} previous call${v.calls === 1 ? '' : 's'}</small></li>`)}`
-          : html`<li class="muted">No previous calls found — enter the particulars below.</li>`);
+          : html`<li class="muted">No previous calls found. Enter the particulars below.</li>`);
         vr.hidden = false;
       }, 250);
     });
@@ -113,7 +113,7 @@ export async function callForm(main, { id }) {
       const set = (n, val) => { if (val != null && val !== '' && f[n]) f[n].value = val; };
       set('vessel_type', v.vessel_type); set('vessel_name', v.name); set('imo', v.imo); set('flag', v.flag);
       set('gross_tonnage', v.gross_tonnage); set('net_tonnage', v.net_tonnage); set('master', v.last_master); set('agent', v.last_agent); set('crew', v.last_crew); set('cargo', v.last_cargo);
-      vr.hidden = true; vs.value = ''; refresh(); toast(`Filled in from ${v.name}'s last call — check the master and crew are still correct.`);
+      vr.hidden = true; vs.value = ''; refresh(); toast(`Filled in from ${v.name}'s last call. Check that the master and crew are still correct.`);
       f.voyage_no.focus();
     };
     vr.addEventListener('click', (e) => { const li = e.target.closest('li[data-i]'); if (li) pick(li); });
@@ -140,11 +140,11 @@ export async function callForm(main, { id }) {
       if (editing) {
         body.version = c.version;
         const res = await api.send('PUT', `/api/calls/${c.id}`, body, { queueable: true, label: `Edit ${c.rotation_no} ${c.vessel_name}` });
-        if (res.queued) { toast('Offline — changes saved on this device and will sync later.', 'warn'); paintConn(); go(`#/calls/${c.id}`); return; }
+        if (res.queued) { toast('Offline: changes saved on this device and will sync later.', 'warn'); paintConn(); go(`#/calls/${c.id}`); return; }
         toast('Changes saved.', 'success'); refreshBadges(); go(`#/calls/${c.id}`);
       } else {
         const res = await api.send('POST', '/api/calls', body, { queueable: true, label: `New call: ${String(body.vessel_name).toUpperCase()} (${body.arrival_date})` });
-        if (res.queued) { toast('Offline — the call is saved on this device and will get its Rotation No. when it syncs.', 'warn'); paintConn(); go('#/calls'); return; }
+        if (res.queued) { toast('Offline: the call is saved on this device and will get its Rotation No. when it syncs.', 'warn'); paintConn(); go('#/calls'); return; }
         toast(`Recorded as ${res.rotation_no}.`, 'success'); refreshBadges(); go(`#/calls/${res.id}`);
       }
     } catch (err) {
@@ -158,7 +158,7 @@ export async function callForm(main, { id }) {
 
 // ============================================================ DIALOGS
 export function departureDialog(c, done) {
-  openDialog(`Record departure — ${c.vessel_name}`, html`
+  openDialog(`Record departure: ${c.vessel_name}`, html`
     <p class="muted">${c.rotation_no} · arrived ${fmtDate(c.arrival_date)} · ${c.station_name}</p>
     <div class="fgrid">
       <label>Departure date<input name="departure_date" type="date" required min="${c.arrival_date}" max="${today()}" value="${today()}"></label>
@@ -168,7 +168,7 @@ export function departureDialog(c, done) {
     submitLabel: 'Record departure',
     onSubmit: async (f) => {
       const res = await api.send('PUT', `/api/calls/${c.id}`, { ...formData(f), version: c.version }, { queueable: true, label: `Departure ${c.rotation_no} ${c.vessel_name}` });
-      if (res.queued) { toast('Offline — departure saved on this device and will sync later.', 'warn'); paintConn(); } else toast(`${c.vessel_name} marked as departed.`, 'success');
+      if (res.queued) { toast('Offline: departure saved on this device and will sync later.', 'warn'); paintConn(); } else toast(`${c.vessel_name} marked as departed.`, 'success');
       done(); return true;
     },
   });
@@ -189,7 +189,7 @@ export function extensionDialog(c, done) {
     submitLabel: approver ? 'Grant extension' : 'Send request',
     onSubmit: async (f) => {
       const res = await api.send('POST', `/api/calls/${c.id}/extensions`, formData(f), { queueable: true, label: `Extension for ${c.rotation_no}` });
-      if (res.queued) { toast('Offline — saved on this device and will sync later.', 'warn'); paintConn(); } else toast(approver ? 'Extension granted.' : 'Extension request sent for approval.', 'success');
+      if (res.queued) { toast('Offline: saved on this device and will sync later.', 'warn'); paintConn(); } else toast(approver ? 'Extension granted.' : 'Extension request sent for approval.', 'success');
       done(); return true;
     },
   });
@@ -198,7 +198,7 @@ export function extensionDialog(c, done) {
 export function decisionDialog(e, c, done, preset) {
   openDialog('Extension decision', html`
     <p><span class="mono">${c.rotation_no}</span> <b>${c.vessel_name}</b></p>
-    <p>Extend from ${fmtDate(e.original_expiry)} to <b>${fmtDate(e.new_expiry)}</b> — ${e.reason}${e.remarks ? ` (${e.remarks})` : ''}. Requested by ${e.requested_by_name}.</p>
+    <p>Extend from ${fmtDate(e.original_expiry)} to <b>${fmtDate(e.new_expiry)}</b>. Reason: ${e.reason}${e.remarks ? ` (${e.remarks})` : ''}. Requested by ${e.requested_by_name}.</p>
     <fieldset class="radios"><legend>Decision</legend>
       <label><input type="radio" name="decision" value="APPROVED" ${preset !== 'REJECTED' ? raw('checked') : ''}> Approve</label>
       <label><input type="radio" name="decision" value="REJECTED" ${preset === 'REJECTED' ? raw('checked') : ''}> Reject</label></fieldset>
@@ -213,7 +213,7 @@ export function decisionDialog(e, c, done, preset) {
 
 export function caseDialog(c, k, done) {
   const people = S.lookups.staff;
-  openDialog(`Investigation — ${c.vessel_name}`, html`
+  openDialog(`Investigation: ${c.vessel_name}`, html`
     <p class="muted">${c.rotation_no} · ${c.station_name} · ${c.overstay_status}${c.days_overdue ? ` · ${c.days_overdue} days overdue` : ''}</p>
     <div class="fgrid">
       <label>Case status<select name="status">${options(['OPEN', 'IN PROGRESS', 'REFERRED', 'CLOSED'], k ? k.status : 'OPEN', { blank: null })}</select></label>

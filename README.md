@@ -1,4 +1,4 @@
-# National Ships Ledger — Belize Customs & Excise Department
+# National Ships Ledger: Belize Customs & Excise Department
 
 A Progressive Web App that replaces the `National_Shipping_Ledger.xlsx` workbook. It keeps the workbook's structure (Vessel Movements, Extension Log, Ship's Report, Dashboard and Overstay Investigation Register) and its rules, adds user accounts with role-based access, and works offline at stations with poor connectivity.
 

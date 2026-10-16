@@ -28,7 +28,7 @@ export async function usersView(main) {
     <td data-l="Status">${u.active ? (u.must_change_password ? html`<span class="tag">Must set password</span>` : 'Active') : html`<span class="tag">Inactive</span>`}</td>
     <td><button class="btn btn-sm" data-edit="${u.id}">Edit</button> ${u.email ? html`<button class="btn btn-sm btn-ghost" data-reset="${u.id}">Reset password</button>` : html`<button class="btn btn-sm btn-ghost" data-signin="${u.id}">Give sign-in</button>`}</td></tr>`)}</tbody></table></div>
   <section class="card section"><h2>What each role can do</h2><div class="tbl-wrap"><table class="tbl tbl-compact matrix"><thead><tr><th>Permission</th>${Object.values(roles).map((r) => html`<th>${r.label}</th>`)}</tr></thead>
-    <tbody>${ROLE_MATRIX.map(([p, rs]) => html`<tr><td>${p}</td>${Object.keys(roles).map((k) => html`<td class="c">${rs.includes(k) ? html`${icon('check', 'ok')}<span class="sr">Yes</span>` : html`<span class="muted" aria-label="No">—</span>`}</td>`)}</tr>`)}</tbody></table></div></section>`);
+    <tbody>${ROLE_MATRIX.map(([p, rs]) => html`<tr><td>${p}</td>${Object.keys(roles).map((k) => html`<td class="c">${rs.includes(k) ? html`${icon('check', 'ok')}<span class="sr">Yes</span>` : html`<span class="muted" aria-label="No">-</span>`}</td>`)}</tr>`)}</tbody></table></div></section>`);
 
   const form = (u = {}) => html`<div class="fgrid">
     ${u.id ? '' : html`<label>Email<input name="email" type="email" required autocapitalize="none"></label>`}
@@ -56,7 +56,7 @@ export async function usersView(main) {
   }));
   $$('[data-reset]', main).forEach((b) => b.addEventListener('click', () => {
     const u = users.find((x) => x.id === b.dataset.reset);
-    openDialog(`Reset password — ${u.email}`, html`<p>Sets a temporary password for ${u.full_name}. They must choose a new one at their next sign-in.</p>
+    openDialog(`Reset password: ${u.email}`, html`<p>Sets a temporary password for ${u.full_name}. They must choose a new one at their next sign-in.</p>
       <label>Temporary password<input name="password" required minlength="10"></label>`, { submitLabel: 'Reset password', onSubmit: async (fm) => {
       await api.send('POST', `/api/users/${u.id}/reset-password`, { password: fm.password.value }); toast('Password reset.', 'success'); render(); return true;
     } });
@@ -125,7 +125,7 @@ export async function settingsView(main) {
     const out = $('#impout', main);
     try {
       const r = await api.send('POST', '/api/import', JSON.parse(await file.text()));
-      out.textContent = `Imported ${r.calls} vessel calls and ${r.extensions} extensions.\n${r.officers_created.length ? `Inactive placeholder accounts created for: ${r.officers_created.join(', ')} — activate them under Users.\n` : ''}${r.skipped.length ? `Skipped:\n  ${r.skipped.join('\n  ')}` : ''}`;
+      out.textContent = `Imported ${r.calls} vessel calls and ${r.extensions} extensions.\n${r.officers_created.length ? `Inactive placeholder accounts created for: ${r.officers_created.join(', ')}. Activate them under Users.\n` : ''}${r.skipped.length ? `Skipped:\n  ${r.skipped.join('\n  ')}` : ''}`;
       out.hidden = false; toast('Import finished.', 'success');
     } catch (err) { out.textContent = err.message; out.hidden = false; toast(err.message, 'error'); }
   });

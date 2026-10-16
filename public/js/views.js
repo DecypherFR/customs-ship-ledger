@@ -7,7 +7,7 @@ import { departureDialog, extensionDialog, decisionDialog, caseDialog } from './
 const qs = (o) => new URLSearchParams(Object.entries(o).filter(([, v]) => v !== '' && v != null)).toString();
 const national = () => !S.me.user.station_code || !['officer', 'supervisor'].includes(S.me.user.role);
 const stationName = (code) => (S.lookups.stations.find((s) => s.code === code) || {}).name || code;
-const offlineNote = (d) => (d && d.__offline ? html`<div class="note note-warn" role="status">${icon('cloudoff')} You are offline — showing the last copy saved on this device.</div>` : '');
+const offlineNote = (d) => (d && d.__offline ? html`<div class="note note-warn" role="status">${icon('cloudoff')} You are offline. Showing the last copy saved on this device.</div>` : '');
 
 // ============================================================ DASHBOARD
 export async function dashboard(main, { params }) {
@@ -17,7 +17,7 @@ export async function dashboard(main, { params }) {
   const a = d.attention; const t = d.totals;
   const scopeLabel = d.station ? stationName(d.station) : 'All stations';
   const attn = [
-    ['Overdue — still in port', a.overdue, 'critical', 'alert', '#/overstay', a.urgent ? `${a.urgent} urgent (3+ extensions)` : 'Extension expired', 'overstay.view'],
+    ['Overdue, still in port', a.overdue, 'critical', 'alert', '#/overstay', a.urgent ? `${a.urgent} urgent (3+ extensions)` : 'Extension expired', 'overstay.view'],
     ['Extensions expiring soon', a.expiring_soon, 'warning', 'clock', '#/overstay', `Within ${S.lookups.settings.expiring_soon_days} days`, 'overstay.view'],
     ['Long stay, no extension', a.long_stay, 'serious', 'clock', '#/overstay', `In port over ${S.lookups.settings.long_stay_days} days`, 'overstay.view'],
     ['Extensions awaiting decision', a.pending_extensions, 'warning', 'clock', '#/extensions', 'Supervisor approval', 'calls.read'],
@@ -61,9 +61,9 @@ export async function dashboard(main, { params }) {
     <section class="card"><h2>By vessel type</h2>${hbars(d.by_type)}</section>
     <section class="card"><h2>By cargo / operation</h2>${hbars(d.by_cargo)}</section>
   </div>
-  <section class="card section"><h2>${d.watch_year} vessels still in port — long-stay watch</h2>
+  <section class="card section"><h2>${d.watch_year} vessels still in port: long-stay watch</h2>
     ${d.watch.length ? html`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Rotation No.</th><th>Vessel</th><th>Station</th><th>Arrived</th><th class="num">Days in port</th><th class="num">Ext.</th><th>Approved until</th><th>Status</th></tr></thead>
-    <tbody>${d.watch.map((w) => html`<tr class="rowlink" data-href="#/calls/${w.id}"><td><a href="#/calls/${w.id}">${w.rotation_no}</a></td><td>${w.vessel_name}</td><td>${w.station_name}</td><td>${fmtDate(w.arrival_date)}</td><td class="num">${w.days_in_port}</td><td class="num">${w.extension_count}</td><td>${fmtDate(w.latest_expiry) || '—'}</td><td>${chip(w.overstay_status)}</td></tr>`)}</tbody></table></div>`
+    <tbody>${d.watch.map((w) => html`<tr class="rowlink" data-href="#/calls/${w.id}"><td><a href="#/calls/${w.id}">${w.rotation_no}</a></td><td>${w.vessel_name}</td><td>${w.station_name}</td><td>${fmtDate(w.arrival_date)}</td><td class="num">${w.days_in_port}</td><td class="num">${w.extension_count}</td><td>${fmtDate(w.latest_expiry) || '-'}</td><td>${chip(w.overstay_status)}</td></tr>`)}</tbody></table></div>`
     : html`<p class="muted">No ${d.watch_year} vessels are currently in port.</p>`}
   </section>`);
   const f = $('#dfilter', main);
@@ -137,12 +137,12 @@ export async function callList(main, { params }) {
   ${pending.length ? html`<div class="note note-warn">${icon('cloudoff')} ${pending.length} new call${pending.length > 1 ? 's are' : ' is'} saved on this device and will receive a Rotation No. when synced. <a href="#/sync">View queue</a></div>` : ''}
   ${rows.length || pending.length ? html`<div class="tbl-wrap"><table class="tbl tbl-ledger"><thead><tr>
     <th>Rotation No.</th><th>Vessel</th><th>Type</th><th>Station</th><th>Arrived</th><th>Departed</th><th class="num">Crew</th><th class="num">Ext.</th><th>Status</th><th><span class="sr">Flags</span></th></tr></thead>
-    <tbody>${pending.map((q) => html`<tr class="pending"><td data-l="Rotation No.">—</td><td data-l="Vessel"><b>${(q.body.vessel_name || '').toUpperCase()}</b></td><td data-l="Type">${q.body.vessel_type}</td><td data-l="Station">${stationName(q.body.station_code || S.me.user.station_code)}</td><td data-l="Arrived">${fmtDate(q.body.arrival_date)}</td><td data-l="Departed">${fmtDate(q.body.departure_date)}</td><td class="num" data-l="Crew">${q.body.crew}</td><td class="num" data-l="Ext.">0</td><td data-l="Status">${chip('PENDING SYNC')}</td><td></td></tr>`)}
+    <tbody>${pending.map((q) => html`<tr class="pending"><td data-l="Rotation No.">-</td><td data-l="Vessel"><b>${(q.body.vessel_name || '').toUpperCase()}</b></td><td data-l="Type">${q.body.vessel_type}</td><td data-l="Station">${stationName(q.body.station_code || S.me.user.station_code)}</td><td data-l="Arrived">${fmtDate(q.body.arrival_date)}</td><td data-l="Departed">${fmtDate(q.body.departure_date)}</td><td class="num" data-l="Crew">${q.body.crew}</td><td class="num" data-l="Ext.">0</td><td data-l="Status">${chip('PENDING SYNC')}</td><td></td></tr>`)}
     ${rows.map((c) => html`<tr class="rowlink" data-href="#/calls/${c.id}">
       <td data-l="Rotation No."><a href="#/calls/${c.id}" class="mono">${c.rotation_no}</a></td>
       <td data-l="Vessel"><b>${c.vessel_name}</b><small class="sub">${c.flag || ''}<span class="m-only">${c.flag ? ' · ' : ''}${c.vessel_type}</span></small></td>
       <td data-l="Type">${c.vessel_type}</td><td data-l="Station">${c.station_name}</td>
-      <td data-l="Arrived">${fmtDate(c.arrival_date)}</td><td data-l="Departed">${fmtDate(c.departure_date) || '—'}</td>
+      <td data-l="Arrived">${fmtDate(c.arrival_date)}</td><td data-l="Departed">${fmtDate(c.departure_date) || '-'}</td>
       <td class="num" data-l="Crew">${c.crew ?? ''}</td><td class="num" data-l="Ext.">${c.extension_count}${c.pending_extensions ? html` <small class="sub">+${c.pending_extensions} pending</small>` : ''}</td>
       <td data-l="Status">${chip(c.status)} ${['OVERDUE', 'EXPIRING SOON', 'LONG STAY'].includes(c.overstay_status) ? chip(c.overstay_status) : ''}</td>
       <td data-l="Flags" class="flags">${c.verified_at ? html`<span title="Verified by ${c.verified_by_name}" class="flag-ok">${icon('lock')}<span class="sr">Verified</span></span>` : ''}${c.data_check ? html`<span title="${c.data_check.join('; ')}" class="flag-warn">${icon('alert')}<span class="sr">Data check: ${c.data_check.join('; ')}</span></span>` : ''}</td>
@@ -181,34 +181,34 @@ export async function callDetail(main, { id }) {
     </div>
   </div>
   ${c.data_check ? html`<div class="note note-warn" role="status">${icon('alert')} <div><b>Data check:</b> ${c.data_check.join(' · ')}. ${canEdit ? html`<a href="#/calls/${c.id}/edit">Complete the record</a>` : ''}</div></div>` : ''}
-  ${c.overstay_status === 'OVERDUE' ? html`<div class="note note-crit" role="alert">${icon('alert')} <div><b>${c.priority}.</b> Approved stay expired ${fmtDate(c.latest_expiry)} — ${c.days_overdue} day${c.days_overdue === 1 ? '' : 's'} overdue and no departure recorded.</div></div>` : ''}
+  ${c.overstay_status === 'OVERDUE' ? html`<div class="note note-crit" role="alert">${icon('alert')} <div><b>${c.priority}.</b> Approved stay expired ${fmtDate(c.latest_expiry)}, ${c.days_overdue} day${c.days_overdue === 1 ? '' : 's'} overdue and no departure recorded.</div></div>` : ''}
   ${c.overstay_status === 'EXPIRING SOON' ? html`<div class="note note-warn">${icon('clock')} Approved stay ends ${fmtDate(c.latest_expiry)} (${c.days_to_expiry === 0 ? 'today' : `in ${c.days_to_expiry} day${c.days_to_expiry === 1 ? '' : 's'}`}).</div>` : ''}
   ${c.overstay_status === 'LONG STAY' ? html`<div class="note note-warn">${icon('clock')} In port ${c.days_in_port} days with no extension on file.</div>` : ''}
   <div class="grid-3">
     <section class="card"><h2>Vessel</h2><dl class="kv">
-      <dt>Vessel type</dt><dd>${c.vessel_type}</dd><dt>IMO / Reg. No.</dt><dd class="mono">${c.imo || '—'}</dd><dt>Flag</dt><dd>${c.flag || '—'}</dd>
-      <dt>Gross / Net tonnage</dt><dd>${fmtNum(c.gross_tonnage) || '—'} / ${fmtNum(c.net_tonnage) || '—'}</dd><dt>Master</dt><dd>${c.master || '—'}</dd>
-      <dt>Shipping agent</dt><dd>${c.agent || '—'}</dd></dl></section>
+      <dt>Vessel type</dt><dd>${c.vessel_type}</dd><dt>IMO / Reg. No.</dt><dd class="mono">${c.imo || '-'}</dd><dt>Flag</dt><dd>${c.flag || '-'}</dd>
+      <dt>Gross / Net tonnage</dt><dd>${fmtNum(c.gross_tonnage) || '-'} / ${fmtNum(c.net_tonnage) || '-'}</dd><dt>Master</dt><dd>${c.master || '-'}</dd>
+      <dt>Shipping agent</dt><dd>${c.agent || '-'}</dd></dl></section>
     <section class="card"><h2>Movement</h2><dl class="kv">
-      <dt>Station</dt><dd>${c.station_name}</dd><dt>Voyage No.</dt><dd>${c.voyage_no || '—'}</dd>
-      <dt>Last port</dt><dd>${c.last_port || '—'}</dd><dt>Arrived</dt><dd>${fmtDate(c.arrival_date)} · ${c.boarding_officer || '—'}</dd>
-      <dt>Next port</dt><dd>${c.next_port || '—'}</dd><dt>Departed</dt><dd>${c.departure_date ? html`${fmtDate(c.departure_date)} · ${c.clearance_officer || '—'}` : html`<em>In port · day ${c.days_in_port}</em>`}</dd></dl></section>
+      <dt>Station</dt><dd>${c.station_name}</dd><dt>Voyage No.</dt><dd>${c.voyage_no || '-'}</dd>
+      <dt>Last port</dt><dd>${c.last_port || '-'}</dd><dt>Arrived</dt><dd>${fmtDate(c.arrival_date)} · ${c.boarding_officer || '-'}</dd>
+      <dt>Next port</dt><dd>${c.next_port || '-'}</dd><dt>Departed</dt><dd>${c.departure_date ? html`${fmtDate(c.departure_date)} · ${c.clearance_officer || '-'}` : html`<em>In port · day ${c.days_in_port}</em>`}</dd></dl></section>
     <section class="card"><h2>Cargo &amp; people</h2><dl class="kv">
-      <dt>Cargo / operation</dt><dd>${c.cargo || '—'}</dd><dt>Crew</dt><dd>${c.crew ?? '—'}</dd><dt>Passengers</dt><dd>${c.passengers ?? '—'}</dd>
-      <dt>Remarks</dt><dd>${c.remarks || '—'}</dd><dt>Boarding report</dt><dd>${r.rummaged || r.fumigated ? `Rummaged: ${r.rummaged || '—'} · Fumigated: ${r.fumigated || '—'}` : html`<a href="#/calls/${c.id}/report">Not completed</a>`}</dd></dl></section>
+      <dt>Cargo / operation</dt><dd>${c.cargo || '-'}</dd><dt>Crew</dt><dd>${c.crew ?? '-'}</dd><dt>Passengers</dt><dd>${c.passengers ?? '-'}</dd>
+      <dt>Remarks</dt><dd>${c.remarks || '-'}</dd><dt>Boarding report</dt><dd>${r.rummaged || r.fumigated ? `Rummaged: ${r.rummaged || '-'} · Fumigated: ${r.fumigated || '-'}` : html`<a href="#/calls/${c.id}/report">Not completed</a>`}</dd></dl></section>
   </div>
   <section class="card section"><div class="card-head"><h2>Clearance extensions <small>${c.extension_count} approved</small></h2></div>
     ${c.extensions.length ? html`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>No.</th><th>Requested</th><th>Original expiry</th><th>New expiry</th><th>Reason</th><th>Status</th><th>Decided by</th><th></th></tr></thead>
-    <tbody>${c.extensions.map((e) => html`<tr><td data-l="No.">${e.status === 'APPROVED' ? e.ext_no : '—'}</td><td data-l="Requested">${fmtDateTime(e.requested_at)} · ${e.requested_by_name}</td>
+    <tbody>${c.extensions.map((e) => html`<tr><td data-l="No.">${e.status === 'APPROVED' ? e.ext_no : '-'}</td><td data-l="Requested">${fmtDateTime(e.requested_at)} · ${e.requested_by_name}</td>
       <td data-l="Original">${fmtDate(e.original_expiry)}</td><td data-l="New expiry"><b>${fmtDate(e.new_expiry)}</b></td><td data-l="Reason">${e.reason}${e.remarks ? html`<small class="sub">${e.remarks}</small>` : ''}</td>
-      <td data-l="Status">${chip(e.status)}${e.decision_note ? html`<small class="sub">${e.decision_note}</small>` : ''}</td><td data-l="Decided">${e.decided_by_name || '—'}</td>
+      <td data-l="Status">${chip(e.status)}${e.decision_note ? html`<small class="sub">${e.decision_note}</small>` : ''}</td><td data-l="Decided">${e.decided_by_name || '-'}</td>
       <td>${e.status === 'PENDING' && can('ext.approve') ? html`<button class="btn btn-sm" data-decide="${e.id}">Decide</button>` : ''}</td></tr>`)}</tbody></table></div>`
     : html`<p class="muted">No extensions recorded.</p>`}</section>
   ${c.case ? html`<section class="card section"><div class="card-head"><h2>Investigation case ${chip(c.case.status)}</h2>${can('cases.manage') ? html`<button class="btn btn-sm" id="case">Update / add note</button>` : ''}</div>
     <dl class="kv kv-inline"><dt>Assigned to</dt><dd>${c.case.assigned_name || 'Unassigned'}</dd><dt>Opened</dt><dd>${fmtDateTime(c.case.opened_at)}</dd>${c.case.outcome ? html`<dt>Outcome</dt><dd>${c.case.outcome}</dd>` : ''}</dl>
     ${c.case.notes.length ? html`<ol class="notes">${c.case.notes.map((n) => html`<li><b>${n.author}</b> <time>${fmtDateTime(n.created_at)}</time><p>${n.note}</p></li>`)}</ol>` : html`<p class="muted">No follow-up notes yet.</p>`}</section>` : ''}
   <details class="card section"><summary><h2>${icon('history')} Record history <small>${c.history.length} entries</small></h2></summary>
-    <ol class="timeline">${c.history.map((h) => html`<li><time>${fmtDateTime(h.ts)}</time> <b>${h.who || 'system'}</b> — ${h.summary}${h.details && h.action === 'update' ? html`<small class="sub">${diffText(h.details)}</small>` : ''}</li>`)}</ol></details>`);
+    <ol class="timeline">${c.history.map((h) => html`<li><time>${fmtDateTime(h.ts)}</time> <b>${h.who || 'system'}</b>: ${h.summary}${h.details && h.action === 'update' ? html`<small class="sub">${diffText(h.details)}</small>` : ''}</li>`)}</ol></details>`);
 
   const reload = () => { refreshBadges(); render(); };
   $('#depart', main)?.addEventListener('click', () => departureDialog(c, reload));
@@ -227,7 +227,7 @@ function diffText(json) {
   try {
     const d = JSON.parse(json);
     const who = (v) => (S.lookups.officers.concat(S.lookups.staff).find((o) => o.id === v) || {}).initials || v;
-    const show = (k, v) => (v == null ? '—' : k.endsWith('_officer_id') ? who(v) : v);
+    const show = (k, v) => (v == null ? '-' : k.endsWith('_officer_id') ? who(v) : v);
     return Object.entries(d).filter(([k]) => k !== 'officer_report')
       .map(([k, [a, b]]) => `${k.replace(/_id$/, '').replace(/_/g, ' ')}: ${show(k, a)} → ${show(k, b)}`).join(' · ') || 'Ship\'s Report updated';
   } catch { return ''; }
@@ -239,7 +239,7 @@ export async function shipReport(main, { id }) {
   const r = c.officer_report || {};
   const canEdit = can('calls.edit') && (!c.verified_at || S.me.user.role === 'admin');
   const field = (name, label, type = 'text') => (canEdit
-    ? html`<label class="rp-edit"><span>${label}</span>${type === 'yn' ? html`<select name="${name}">${options(['YES', 'NO'], r[name], { blank: '—' })}</select>` : html`<input name="${name}" type="${type}" value="${r[name] || ''}">`}</label>`
+    ? html`<label class="rp-edit"><span>${label}</span>${type === 'yn' ? html`<select name="${name}">${options(['YES', 'NO'], r[name], { blank: '-' })}</select>` : html`<input name="${name}" type="${type}" value="${r[name] || ''}">`}</label>`
     : html`<div class="rp-f"><span>${label}</span><b>${r[name] || ''}</b></div>`);
   main.innerHTML = String(html`
   <nav class="crumbs no-print"><a href="#/calls">Vessel calls</a> / <a href="#/calls/${c.id}" class="mono">${c.rotation_no}</a> / Ship's Report</nav>
@@ -270,7 +270,7 @@ export async function shipReport(main, { id }) {
     const officer_report = formData(e.target);
     try {
       const res = await api.send('PUT', `/api/calls/${c.id}`, { version: c.version, officer_report }, { queueable: true, label: `Ship's Report ${c.rotation_no}` });
-      if (res.queued) { toast('Offline — report saved on this device and will sync later.', 'warn'); paintConn(); } else { toast('Officer\'s report saved.', 'success'); render(); }
+      if (res.queued) { toast('Offline - report saved on this device and will sync later.', 'warn'); paintConn(); } else { toast('Officer\'s report saved.', 'success'); render(); }
     } catch (err) { toast(err.message, 'error'); }
   });
 }
@@ -286,7 +286,7 @@ export async function extensionsView(main, { params }) {
   <section class="card section"><h2>Awaiting decision <small>${pending.length}</small></h2>
     ${pending.length ? html`<ul class="queue">${pending.map((e) => html`<li>
       <div><a href="#/calls/${e.call_id}" class="mono">${e.rotation_no}</a> <b>${e.vessel_name}</b> <span class="muted">· ${e.station_name}</span>
-        <p>Extend ${fmtDate(e.original_expiry)} → <b>${fmtDate(e.new_expiry)}</b> · ${e.reason}${e.remarks ? ` — ${e.remarks}` : ''}</p>
+        <p>Extend ${fmtDate(e.original_expiry)} → <b>${fmtDate(e.new_expiry)}</b> · ${e.reason}${e.remarks ? ` (${e.remarks})` : ''}</p>
         <small class="muted">Requested by ${e.requested_by_name}, ${fmtDateTime(e.requested_at)}</small></div>
       ${can('ext.approve') ? html`<div class="actions"><button class="btn btn-sm btn-primary" data-act="APPROVED" data-id="${e.id}">${icon('check')} Approve</button><button class="btn btn-sm" data-act="REJECTED" data-id="${e.id}">${icon('x')} Reject</button></div>` : chip('PENDING')}
     </li>`)}</ul>` : html`<p class="muted">Nothing is waiting for a decision.</p>`}
@@ -294,7 +294,7 @@ export async function extensionsView(main, { params }) {
   <section class="card section"><div class="card-head"><h2>Extension log</h2>
     <select id="xs" aria-label="Filter by status">${options(['APPROVED', 'PENDING', 'REJECTED'], status, { blank: 'All statuses' })}</select></div>
     ${rows.length ? html`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Rotation No.</th><th>Vessel</th><th>Station</th><th>Granted</th><th>Original expiry</th><th>New expiry</th><th>Approved by</th><th>Reason</th><th>Status</th></tr></thead>
-    <tbody>${rows.map((e) => html`<tr class="rowlink" data-href="#/calls/${e.call_id}"><td data-l="Rotation"><a class="mono" href="#/calls/${e.call_id}">${e.rotation_no}</a></td><td data-l="Vessel">${e.vessel_name}</td><td data-l="Station">${e.station_name}</td><td data-l="Granted">${fmtDate(e.date_granted) || '—'}</td><td data-l="Original">${fmtDate(e.original_expiry)}</td><td data-l="New expiry"><b>${fmtDate(e.new_expiry)}</b></td><td data-l="Approved by">${e.decided_by_name || '—'}</td><td data-l="Reason">${e.reason}</td><td data-l="Status">${chip(e.status)}</td></tr>`)}</tbody></table></div>`
+    <tbody>${rows.map((e) => html`<tr class="rowlink" data-href="#/calls/${e.call_id}"><td data-l="Rotation"><a class="mono" href="#/calls/${e.call_id}">${e.rotation_no}</a></td><td data-l="Vessel">${e.vessel_name}</td><td data-l="Station">${e.station_name}</td><td data-l="Granted">${fmtDate(e.date_granted) || '-'}</td><td data-l="Original">${fmtDate(e.original_expiry)}</td><td data-l="New expiry"><b>${fmtDate(e.new_expiry)}</b></td><td data-l="Approved by">${e.decided_by_name || '-'}</td><td data-l="Reason">${e.reason}</td><td data-l="Status">${chip(e.status)}</td></tr>`)}</tbody></table></div>`
     : html`<p class="muted">No extensions recorded.</p>`}
   </section>`);
   $('#xs', main).addEventListener('change', (e) => go(`#/extensions?${qs({ status: e.target.value })}`));
@@ -318,7 +318,7 @@ export async function overstayView(main, { params }) {
   ${offlineNote(d)}
   <div class="kpis kpis-4">
     <a class="kpi kpi-crit" href="#/overstay?show=OVERDUE"><span class="kpi-n">${count('OVERDUE')}</span><span class="kpi-l">${icon('alert')} Overdue vessels</span></a>
-    <a class="kpi kpi-crit" href="#/overstay?show=OVERDUE"><span class="kpi-n">${urgent}</span><span class="kpi-l">${icon('alert')} Urgent — ${S.lookups.settings.urgent_extension_count}+ extensions</span></a>
+    <a class="kpi kpi-crit" href="#/overstay?show=OVERDUE"><span class="kpi-n">${urgent}</span><span class="kpi-l">${icon('alert')} Urgent: ${S.lookups.settings.urgent_extension_count}+ extensions</span></a>
     <a class="kpi kpi-warn" href="#/overstay?show=EXPIRING%20SOON"><span class="kpi-n">${count('EXPIRING SOON')}</span><span class="kpi-l">${icon('clock')} Expiring within ${S.lookups.settings.expiring_soon_days} days</span></a>
     <a class="kpi kpi-warn" href="#/overstay?show=LONG%20STAY"><span class="kpi-n">${count('LONG STAY')}</span><span class="kpi-l">${icon('clock')} Long stay, no extension</span></a>
   </div>
@@ -327,10 +327,10 @@ export async function overstayView(main, { params }) {
   <tbody>${items.map((c) => html`<tr>
     <td data-l="Rotation"><a class="mono" href="#/calls/${c.id}">${c.rotation_no}</a></td><td data-l="Vessel"><b>${c.vessel_name}</b><small class="sub">${c.flag}</small></td><td data-l="Station">${c.station_name}</td>
     <td data-l="Agent / Master">${c.agent}<small class="sub">${c.master}</small></td><td data-l="Arrived">${fmtDate(c.arrival_date)}</td><td class="num" data-l="Ext.">${c.extension_count}</td>
-    <td data-l="Approved until">${fmtDate(c.latest_expiry) || '—'}</td>
+    <td data-l="Approved until">${fmtDate(c.latest_expiry) || '-'}</td>
     <td class="num" data-l="Days">${c.overstay_status === 'OVERDUE' ? html`<b class="t-crit">${c.days_overdue} over</b>` : c.overstay_status === 'EXPIRING SOON' ? `${c.days_to_expiry} left` : `${c.days_in_port} in port`}</td>
     <td data-l="Status">${chip(c.overstay_status)}${c.priority ? html`<small class="sub">${c.priority}</small>` : ''}</td>
-    <td data-l="Case">${c.case ? html`${chip(c.case.status)}<small class="sub">${c.case.assigned_name || 'Unassigned'} · ${c.case.notes} note${c.case.notes === 1 ? '' : 's'}</small>` : '—'}</td>
+    <td data-l="Case">${c.case ? html`${chip(c.case.status)}<small class="sub">${c.case.assigned_name || 'Unassigned'} · ${c.case.notes} note${c.case.notes === 1 ? '' : 's'}</small>` : '-'}</td>
     <td class="no-print">${can('cases.manage') ? html`<button class="btn btn-sm" data-case="${c.id}">${c.case ? 'Follow up' : 'Open case'}</button>` : ''}</td></tr>`)}</tbody></table></div>`
     : html`<div class="empty">${icon('check', 'big-ok')}<p>No vessels need follow-up${show ? ' in this view' : ''}.</p></div>`}`);
   $('#print', main).addEventListener('click', () => window.print());
