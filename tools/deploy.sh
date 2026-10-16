@@ -28,7 +28,7 @@ echo "1/5 Database migrations"
 $CLI db push --db-url "$SUPABASE_DB_URL" --include-all --yes
 
 echo "2/5 Edge function admin-users"
-$CLI functions deploy admin-users --project-ref "$REF" --no-verify-jwt
+$CLI functions deploy admin-users --project-ref "$REF" --no-verify-jwt --use-api
 $CLI secrets set --project-ref "$REF" "ALLOWED_ORIGINS=$APP_ORIGIN,http://localhost:8080"
 
 echo "3/5 Auth settings: no public sign-ups; site URL"
