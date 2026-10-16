@@ -1,10 +1,11 @@
 // Service worker: caches the app shell so the PWA starts offline.
 // Data is not cached here: the data layer (js/api.js) keeps its own per-user cache in IndexedDB,
 // and requests to Supabase (another origin) pass straight through.
-const VERSION = 'ledger-v5';
+const VERSION = 'ledger-v6';
 const SHELL = ['./', './index.html', './config.js', './css/app.css', './js/app.js', './js/api.js', './js/ui.js', './js/views.js', './js/forms.js',
   './js/admin.js', './vendor/supabase-2.117.2.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
-  './icons/customs-logo.png', './icons/favicon.png', './icons/apple-touch-icon.png'];
+  './icons/customs-logo.png', './icons/favicon.png', './icons/apple-touch-icon.png',
+  './js/pdf.js', './vendor/jspdf-2.5.2.umd.min.js', './vendor/jspdf.plugin.autotable-3.8.4.min.js'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

@@ -99,6 +99,7 @@ function shell() {
   document.addEventListener('click', async (e) => {
     const a = e.target.closest('a[href^="/api/export/"]'); if (!a) return;
     e.preventDefault();
+    if (a.getAttribute('href').includes('.pdf')) toast('Preparing the PDF…');
     try { await api.download(a.getAttribute('href')); } catch (err) { toast(err.message, 'error'); }
   });
   $('#menu').addEventListener('click', () => setDrawer(!document.body.classList.contains('nav-open')));

@@ -292,6 +292,14 @@ export const api = {
   async download(url) {
     const u = new URL(url, location.origin);
     const q = Object.fromEntries(u.searchParams);
+    if (u.pathname.endsWith('/month.pdf')) {
+      const filter = new URLSearchParams({ month: q.month || '', station: q.station || '' });
+      const [d, calls] = await Promise.all([api.get(`/api/dashboard?${filter}`), api.get(`/api/calls?${filter}`)]);
+      const { monthReport } = await import('./pdf.js');
+      await monthReport(d, calls.slice().reverse());
+      await rpc('log_export', { p_what: `PDF report for ${d.month}${d.station ? ` (${d.station})` : ''}` }).catch(() => {});
+      return;
+    }
     if (u.pathname.endsWith('/extensions.csv')) {
       const rows = await extensions({});
       await rpc('log_export', { p_what: `${rows.length} extension log entries` }).catch(() => {});

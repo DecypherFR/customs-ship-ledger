@@ -478,6 +478,46 @@ tr.inactive td { color: var(--ink-3); }
   #dfilter :is(input, select) { height: 44px; min-height: 44px; }
   #dfilter > .btn { height: 44px; }
   #dfilter > .btn:nth-child(3) { grid-column: 1 / -1; }
+  /* Dashboard, by station: one small card per station. */
+  .card .tbl-wrap .tbl-stations { display: block; }
+  .tbl-stations thead { display: none; }
+  .tbl-stations tbody { display: grid; }
+  .tbl-stations tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 10px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+  .tbl-stations tr:last-child { border-bottom: 0; }
+  .tbl-stations tr.zero { opacity: .6; }
+  .card .tbl.tbl-stations td { padding: 0 !important; border: 0; text-align: left; }
+  .tbl-stations td[data-l="Station"] { grid-column: 1 / 3; font-weight: 650; font-size: .98rem; }
+  .tbl-stations td[data-l="Calls"] { grid-column: 3; text-align: right !important; color: var(--ink-2); font-size: .85rem; }
+  .tbl-stations td[data-l="Calls"] b { font-size: 1.15rem; color: var(--navy-ink); }
+  .tbl-stations td:not([data-l="Station"], [data-l="Calls"])::before { content: attr(data-l); display: block; font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+
+  /* Overstay register: a compact card per vessel. */
+  .tbl-wrap .tbl.tbl-overstay tr { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 10px; padding: 12px 14px; }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Vessel"] { grid-column: 1 / 4; grid-row: 1; }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Vessel"] b { font-size: 1rem; }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Days"] { grid-column: 4; grid-row: 1; justify-self: end; text-align: right !important; font-size: .9rem; }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Status"] { grid-column: 1 / -1; grid-row: 2; }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Status"] .sub { display: inline; margin-left: 6px; font-size: .74rem; font-weight: 600; letter-spacing: .02em; }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Rotation"] { grid-column: 1 / 3; grid-row: 3; }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Station"] { grid-column: 3 / 5; grid-row: 3; color: var(--ink-2); }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Agent / Master"] { grid-column: 1 / -1; grid-row: 4; font-size: .85rem; color: var(--ink-2); }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Agent / Master"] .sub { display: inline; }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Agent / Master"] .sub::before { content: " · "; }
+  .tbl-wrap .tbl.tbl-overstay td:is([data-l="Arrived"], [data-l="Approved until"], [data-l="Ext."], [data-l="Case"]) { margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Arrived"] { grid-column: 1 / 3; grid-row: 5; }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Approved until"] { grid-column: 3 / 5; grid-row: 5; }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Ext."] { grid-column: 1 / 2; grid-row: 6; }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Case"] { grid-column: 2 / -1; grid-row: 6; }
+  .tbl-wrap .tbl.tbl-overstay td[data-l="Case"] .sub { display: inline; margin-left: 6px; }
+  .tbl-wrap .tbl.tbl-overstay td:last-child { grid-column: 1 / -1; grid-row: 7; }
+  .tbl-wrap .tbl.tbl-overstay td:last-child .btn { width: 100%; margin-top: 6px; }
+  .tbl-wrap .tbl.tbl-overstay td:is([data-l="Vessel"], [data-l="Days"], [data-l="Status"], [data-l="Rotation"], [data-l="Station"], [data-l="Agent / Master"])::before { display: none; }
+  .kpis-4 { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kpis-4 .kpi { padding: 10px 12px; }
+  .kpis-4 .kpi-n { font-size: 1.4rem; }
+  .kpis-4 .kpi-l { font-size: .78rem; align-items: flex-start; }
+  .kpis-4 .kpi-l .ico { margin-top: 1px; }
+
   .attn-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .attn { padding: 10px 12px; column-gap: 8px; }
   .attn-ico { width: 28px; height: 28px; }

@@ -39,7 +39,7 @@ export async function dashboard(main, { params }) {
     <form class="filters hero-filters" id="dfilter">
       <label class="f-inline">Report month<input type="month" name="month" value="${d.month}" max="${S.lookups.today.slice(0, 7)}"></label>
       ${national() ? html`<label class="f-inline">Station<select name="station">${options(S.lookups.stations, station, { blank: 'All stations', value: (s) => s.code, label: (s) => s.name })}</select></label>` : ''}
-      ${can('export') ? html`<a class="btn btn-glass" href="/api/export/calls.csv?month=${d.month}" download>${icon('download')} Export month</a>` : ''}
+      ${can('export') ? html`<a class="btn btn-glass" href="/api/export/month.pdf?month=${d.month}${station ? `&station=${station}` : ''}" download>${icon('download')} Export month (PDF)</a>` : ''}
     </form>
   </section>
   ${offlineNote(d)}
@@ -61,8 +61,10 @@ export async function dashboard(main, { params }) {
     </div>
   </section>
   <section class="card section"><h2>By customs station</h2>
-      <div class="tbl-wrap"><table class="tbl tbl-compact"><thead><tr><th>Station</th><th class="num">Calls</th><th class="num">Departed</th><th class="num">In port</th><th class="num">Crew</th><th class="num">Pax</th><th class="num">GT</th><th class="num">Ext.</th></tr></thead>
-      <tbody>${d.by_station.map((s) => html`<tr><td>${s.name}</td><td class="num"><b>${s.calls}</b></td><td class="num">${s.departed}</td><td class="num">${s.in_port}</td><td class="num">${fmtNum(s.crew)}</td><td class="num">${fmtNum(s.passengers)}</td><td class="num">${fmtNum(s.gross_tonnage)}</td><td class="num">${s.extensions}</td></tr>`)}</tbody></table></div></section>
+      <div class="tbl-wrap"><table class="tbl tbl-compact tbl-stations"><thead><tr><th>Station</th><th class="num">Calls</th><th class="num">Departed</th><th class="num">In port</th><th class="num">Crew</th><th class="num">Pax</th><th class="num">GT</th><th class="num">Ext.</th></tr></thead>
+      <tbody>${d.by_station.map((s) => html`<tr class="${s.calls ? '' : 'zero'}"><td data-l="Station">${s.name}</td><td class="num" data-l="Calls"><b>${s.calls}</b><span class="m-only"> call${s.calls === 1 ? '' : 's'}</span></td>
+        <td class="num" data-l="Departed">${s.departed}</td><td class="num" data-l="In port">${s.in_port}</td><td class="num" data-l="Crew">${fmtNum(s.crew)}</td>
+        <td class="num" data-l="Passengers">${fmtNum(s.passengers)}</td><td class="num" data-l="Gross tonnage">${fmtNum(s.gross_tonnage)}</td><td class="num" data-l="Extensions">${s.extensions}</td></tr>`)}</tbody></table></div></section>
   <div class="grid-3 section">
     <section class="card"><h2>Vessel calls, last 12 months</h2>${barChart(d.trend)}
       <details class="tbl-toggle"><summary>Show as table</summary><table class="tbl tbl-compact"><thead><tr><th>Month</th><th class="num">Calls</th></tr></thead>
@@ -334,14 +336,14 @@ export async function overstayView(main, { params }) {
     <a class="kpi kpi-warn" href="#/overstay?show=LONG%20STAY"><span class="kpi-n">${count('LONG STAY')}</span><span class="kpi-l">${icon('clock')} Long stay, no EDD or extension</span></a>
   </div>
   <div class="seg no-print" role="group" aria-label="Show">${[['', 'All'], ['OVERDUE', 'Overdue'], ['EXPIRING SOON', 'Expiring soon'], ['LONG STAY', 'Long stay'], ['CASES', 'With a case']].map(([v, l]) => html`<a href="#/overstay${v ? `?show=${encodeURIComponent(v)}` : ''}" class="${show === v ? 'on' : ''}">${l}</a>`)}</div>
-  ${items.length ? html`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Rotation No.</th><th>Vessel</th><th>Station</th><th>Agent / Master</th><th>Arrived</th><th class="num">Ext.</th><th>Approved until</th><th class="num">Days</th><th>Status / priority</th><th>Case</th><th class="no-print"></th></tr></thead>
+  ${items.length ? html`<div class="tbl-wrap"><table class="tbl tbl-overstay"><thead><tr><th>Rotation No.</th><th>Vessel</th><th>Station</th><th>Agent / Master</th><th>Arrived</th><th class="num">Ext.</th><th>Approved until</th><th class="num">Days</th><th>Status / priority</th><th>Case</th><th class="no-print"></th></tr></thead>
   <tbody>${items.map((c) => html`<tr>
     <td data-l="Rotation"><a class="mono" href="#/calls/${c.id}">${c.rotation_no}</a></td><td data-l="Vessel"><b>${c.vessel_name}</b><small class="sub">${c.flag}</small></td><td data-l="Station">${c.station_name}</td>
     <td data-l="Agent / Master">${c.agent}<small class="sub">${c.master}</small></td><td data-l="Arrived">${fmtDate(c.arrival_date)}</td><td class="num" data-l="Ext.">${c.extension_count}</td>
     <td data-l="Approved until">${fmtDate(c.latest_expiry) || '-'}</td>
     <td class="num" data-l="Days">${c.overstay_status === 'OVERDUE' ? html`<b class="t-crit">${c.days_overdue} over</b>` : c.overstay_status === 'EXPIRING SOON' ? `${c.days_to_expiry} left` : `${c.days_in_port} in port`}</td>
     <td data-l="Status">${chip(c.overstay_status)}${c.priority ? html`<small class="sub">${c.priority}</small>` : ''}</td>
-    <td data-l="Case">${c.case ? html`${chip(c.case.status)}<small class="sub">${c.case.assigned_name || 'Unassigned'} · ${c.case.notes} note${c.case.notes === 1 ? '' : 's'}</small>` : '-'}</td>
+    <td data-l="Case">${c.case ? html`${chip(c.case.status)}<small class="sub">${c.case.assigned_name || 'Unassigned'} · ${c.case.notes} note${c.case.notes === 1 ? '' : 's'}</small>` : ''}</td>
     <td class="no-print">${can('cases.manage') ? html`<button class="btn btn-sm" data-case="${c.id}">${c.case ? 'Follow up' : 'Open case'}</button>` : ''}</td></tr>`)}</tbody></table></div>`
     : html`<div class="empty">${icon('check', 'big-ok')}<p>No vessels need follow-up${show ? ' in this view' : ''}.</p></div>`}`);
   $('#print', main).addEventListener('click', () => window.print());
