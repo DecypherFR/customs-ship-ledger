@@ -236,7 +236,11 @@ async function adminFn(body) {
   try {
     res = await fetch(`${cfg.supabaseUrl}/functions/v1/admin-users`, { method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: cfg.supabaseAnonKey, Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify(body) });
-  } catch { throw offlineError(); }
+  } catch {
+    // A refused cross-origin request looks exactly like a lost connection, so only blame the network when it is down.
+    if (!navigator.onLine) throw offlineError();
+    throw new ApiError(503, { error: 'The account service did not answer. Check that the admin-users function is deployed and that ALLOWED_ORIGINS includes this site’s address, then try again.' });
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(res.status, data);
   return data;

@@ -19,8 +19,9 @@ REF=$(grep -o 'https://[a-z0-9]*\.supabase\.co' public/config.js | head -1 | sed
 SUPABASE_URL="https://$REF.supabase.co"
 REMOTE=$(git remote get-url origin | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')
 OWNER=${REMOTE%%/*}; REPO=${REMOTE##*/}
-APP_URL=${APP_URL:-"https://$OWNER.github.io/$REPO/"}
-APP_ORIGIN=$(echo "$APP_URL" | sed -E 's#^(https?://[^/]+).*#\1#')
+# Host names are lower case in the browser's Origin header, so the address must be too.
+APP_URL=${APP_URL:-"https://$(echo "$OWNER" | tr 'A-Z' 'a-z').github.io/$REPO/"}
+APP_ORIGIN=$(echo "$APP_URL" | sed -E 's#^(https?://[^/]+).*#\1#' | tr 'A-Z' 'a-z')
 mgmt() { curl -fsS -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H 'Content-Type: application/json' "$@"; }
 echo "Project $REF, app $APP_URL"
 

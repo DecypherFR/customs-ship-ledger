@@ -22,8 +22,10 @@ class HttpError extends Error { constructor(status, message, field) { super(mess
  */
 export async function handle(req, env, createClient) {
   const origin = req.headers.get('origin');
-  const allowed = (env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const corsOrigin = !allowed.length || allowed.includes(origin) ? origin : allowed[0];
+  // Browsers send the origin in lower case; compare without case or a trailing slash.
+  const norm = (s) => String(s || '').trim().replace(/\/+$/, '').toLowerCase();
+  const allowed = (env.ALLOWED_ORIGINS || '').split(',').map(norm).filter(Boolean);
+  const corsOrigin = !allowed.length || allowed.includes(norm(origin)) ? origin : allowed[0];
   const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...cors(corsOrigin) } });
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(corsOrigin) });
   if (req.method !== 'POST') return json(405, { error: 'Method not allowed.' });
