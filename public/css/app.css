@@ -126,6 +126,11 @@ textarea { resize: vertical; }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: 3px solid color-mix(in srgb, var(--accent) 22%, transparent); outline-offset: 0; }
 input[readonly] { background: var(--surface-2); }
 input.caps { text-transform: uppercase; }
+/* iPhone and iPad draw date boxes taller than other fields, with the date centred. */
+@supports (-webkit-touch-callout: none) {
+  input:is([type=date], [type=month], [type=time]) { -webkit-appearance: none; appearance: none; height: 40px; line-height: 22px; }
+  input::-webkit-date-and-time-value { text-align: left; margin: 0; }
+}
 input.caps::placeholder { text-transform: none; }
 .invalid, [aria-invalid="true"] { border-color: var(--critical) !important; }
 .req { color: var(--critical-ink); }
