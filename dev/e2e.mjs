@@ -24,7 +24,7 @@ const toastText = async (p) => (await p.locator('.toast').allTextContents()).joi
 // --- Supervisor, Belize City
 let { ctx, p } = await session('jflowers'); await p.waitForSelector('.attn');
 await shot(p, '01-dashboard-supervisor');
-log('supervisor dashboard station:', await p.textContent('.page-head p'));
+log('supervisor dashboard station:', await p.textContent('.hero .eyebrow'));
 await p.goto(B + '/#/calls/new'); await p.waitForSelector('#cf');
 await p.fill('#vsearch', 'OCEAN P'); await p.waitForSelector('#vresults li[data-i]'); await p.click('#vresults li[data-i]');
 await p.fill('[name=rotation_seq]', '5801'); await p.fill('[name=voyage_no]', '5240');
@@ -102,7 +102,7 @@ await ctx.close();
 ({ ctx, p } = await session('new.officer@example.com', { pw: 'TempPass2026' }));
 await p.waitForSelector('#pw'); log('forced password screen shown');
 await p.fill('[name=current]', 'TempPass2026'); await p.fill('[name=password]', 'MyOwnPass2026'); await p.fill('[name=repeat]', 'MyOwnPass2026');
-await p.click('#pw button'); await p.waitForSelector('.attn'); log('new officer reached dashboard:', await p.textContent('.page-head p'));
+await p.click('#pw button'); await p.waitForSelector('.attn'); log('new officer reached dashboard:', await p.textContent('.hero .eyebrow'));
 await ctx.close();
 
 // --- Officer Belize City on a phone: offline entry then sync

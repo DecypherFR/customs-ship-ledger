@@ -84,7 +84,8 @@ function shell() {
     <div class="main-wrap">
       <header class="topbar">
         <button class="icon-btn menu-btn" id="menu" aria-label="Menu" aria-expanded="false">${icon('menu')}</button>
-        <span class="top-title" id="top-title">Ledger</span>
+        <a href="#/" class="top-brand">${logo(30)}<span><strong>National Ships Ledger</strong><small>${S.me.station_name}</small></span></a>
+        <span class="top-date">${longDate(S.lookups.today)} · ${S.me.station_name}</span>
         <a href="#/sync" class="conn" id="conn" aria-live="polite"></a>
       </header>
       <main id="main" tabindex="-1"></main>
@@ -116,6 +117,7 @@ function setDrawer(open) {
   $('#menu').setAttribute('aria-expanded', open);
   $('#more')?.setAttribute('aria-expanded', open);
 }
+const longDate = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 const isActive = (href, here) => (href === '#/' ? here === '#/' || here === ''
   : href === '#/calls' ? /^#\/calls(\?|\/\d|$)/.test(here) : here === href || here.startsWith(href + '/'));
 // Phones get a bottom bar with the four most-used pages; everything else stays in the drawer.
@@ -157,8 +159,9 @@ export async function render() {
   main.innerHTML = '<div class="loading" aria-busy="true">Loading…</div>';
   try {
     await r[1](main, { id: m[1], params, edit: /\/edit$/.test(path) });
-    const h1 = main.querySelector('h1'); $('#top-title').textContent = h1 ? h1.textContent : 'Ledger';
-    document.title = `${h1 ? h1.textContent + ' · ' : ''}National Ships Ledger`;
+    const named = main.querySelector('[data-page-title]'); const h1 = main.querySelector('h1');
+    const title = named ? named.dataset.pageTitle : h1 ? h1.textContent : '';
+    document.title = `${title ? title + ' · ' : ''}National Ships Ledger`;
     main.focus({ preventScroll: true }); window.scrollTo(0, 0);
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) return loginView();
@@ -175,18 +178,24 @@ async function logout() {
 
 function loginView() {
   document.body.innerHTML = String(html`
-  <main class="login">
+  <main class="login"><div class="login-shell">
+    <aside class="login-brand" aria-hidden="true">
+      ${logo(150)}
+      <p class="login-dept">Belize Customs &amp; Excise Department</p>
+      <p class="login-pitch">Every vessel call, clearance extension and overstay, at every maritime station.</p>
+      <ul class="login-points"><li>${icon('ship')} One ledger for all stations</li><li>${icon('clock')} Overstays flagged as they happen</li><li>${icon('cloudoff')} Keeps working offline</li></ul>
+    </aside>
     <form class="login-card" id="login" novalidate>
-      ${logo(120)}
+      <span class="login-logo">${logo(110)}</span>
       <h1>National Ships Ledger</h1>
-      <p class="muted">Belize Customs &amp; Excise Department</p>
+      <p class="muted">Sign in to continue</p>
       <label>Email<input name="username" type="email" autocomplete="username" required autocapitalize="none" inputmode="email"></label>
       <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
       <p class="form-error" role="alert" hidden></p>
       <button class="btn btn-primary btn-block" type="submit">Sign in</button>
       <p class="fine">Authorised Customs personnel only. All activity is recorded.</p>
     </form>
-  </main><div id="toasts" class="toasts"></div>`);
+  </div></main><div id="toasts" class="toasts"></div>`);
   const f = $('#login'); f.username.focus();
   f.addEventListener('submit', async (e) => {
     e.preventDefault();

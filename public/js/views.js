@@ -24,15 +24,24 @@ export async function dashboard(main, { params }) {
     ['Records failing data check', a.data_check, 'serious', 'info', '#/calls?flag=datacheck', 'Missing or inconsistent fields', 'calls.read'],
     ['Departed, not yet verified', a.unverified_departed, 'info', 'lock', '#/calls?flag=unverified', 'Awaiting supervisor sign-off', 'calls.verify'],
   ].filter((x) => can(x[6]));
+  const hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'America/Belize' }).format(new Date()));
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const name = S.me.user.full_name; const first = /^(system|office)\b/i.test(name) ? '' : name.split(' ')[0];
   main.innerHTML = String(html`
-  <div class="page-head">
-    <div><h1>Dashboard</h1><p class="muted">${fmtMonthLong(d.month)} · ${scopeLabel}</p></div>
-    <form class="filters" id="dfilter">
+  <section class="hero">
+    <div class="hero-text">
+      <p class="eyebrow">${fmtMonthLong(d.month)} · ${scopeLabel}</p>
+      <h1 data-page-title="Dashboard">${greeting}${first ? `, ${first}` : ''}</h1>
+      <p class="hero-sub"><b>${a.in_port}</b> vessel${a.in_port === 1 ? '' : 's'} in port${can('overstay.view') && a.overdue ? html` · <b class="hero-alert">${a.overdue} overdue</b>` : ''}${a.pending_extensions ? html` · ${a.pending_extensions} extension${a.pending_extensions === 1 ? '' : 's'} to decide` : ''}</p>
+      <div class="hero-actions">${can('calls.create') ? html`<a class="btn btn-gold" href="#/calls/new">${icon('plus')} New vessel call</a>` : ''}
+        ${can('overstay.view') ? html`<a class="btn btn-glass" href="#/overstay">${icon('alert')} Overstay register</a>` : html`<a class="btn btn-glass" href="#/calls">${icon('ship')} Vessel calls</a>`}</div>
+    </div>
+    <form class="filters hero-filters" id="dfilter">
       <label class="f-inline">Report month<input type="month" name="month" value="${d.month}" max="${S.lookups.today.slice(0, 7)}"></label>
       ${national() ? html`<label class="f-inline">Station<select name="station">${options(S.lookups.stations, station, { blank: 'All stations', value: (s) => s.code, label: (s) => s.name })}</select></label>` : ''}
-      ${can('export') ? html`<a class="btn" href="/api/export/calls.csv?month=${d.month}" download>${icon('download')} Export month</a>` : ''}
+      ${can('export') ? html`<a class="btn btn-glass" href="/api/export/calls.csv?month=${d.month}" download>${icon('download')} Export month</a>` : ''}
     </form>
-  </div>
+  </section>
   ${offlineNote(d)}
   <section aria-labelledby="attn-h" class="section">
     <h2 id="attn-h" class="section-h">Needs attention now <small>across all dates</small></h2>
@@ -142,7 +151,7 @@ export async function callList(main, { params }) {
       <td data-l="Rotation No."><a href="#/calls/${c.id}" class="mono">${c.rotation_no}</a></td>
       <td data-l="Vessel"><b>${c.vessel_name}</b><small class="sub">${c.flag || ''}<span class="m-only">${c.flag ? ' · ' : ''}${c.vessel_type}</span></small></td>
       <td data-l="Type">${c.vessel_type}</td><td data-l="Station">${c.station_name}</td>
-      <td data-l="Arrived">${fmtDate(c.arrival_date)}</td><td data-l="Departed">${c.departure_date ? fmtDate(c.departure_date) : c.estimated_departure ? html`<span class="muted" title="Estimated departure">Est. ${fmtDate(c.estimated_departure)}</span>` : '-'}</td>
+      <td data-l="Arrived">${fmtDate(c.arrival_date)}</td><td data-l="Departed">${c.departure_date ? fmtDate(c.departure_date) : c.estimated_departure ? html`<span class="muted" title="Estimated departure">Est. <span class="nowrap">${fmtDate(c.estimated_departure)}</span></span>` : '-'}</td>
       <td class="num" data-l="Crew">${c.crew ?? ''}</td><td class="num" data-l="Ext.">${c.extension_count}${c.pending_extensions ? html` <small class="sub">+${c.pending_extensions} pending</small>` : ''}</td>
       <td data-l="Status">${chip(c.status)} ${['OVERDUE', 'EXPIRING SOON', 'LONG STAY'].includes(c.overstay_status) ? chip(c.overstay_status) : ''}</td>
       <td data-l="Flags" class="flags">${c.verified_at ? html`<span title="Verified by ${c.verified_by_name}" class="flag-ok">${icon('lock')}<span class="sr">Verified</span></span>` : ''}${c.data_check ? html`<span title="${c.data_check.join('; ')}" class="flag-warn">${icon('alert')}<span class="sr">Data check: ${c.data_check.join('; ')}</span></span>` : ''}</td>
