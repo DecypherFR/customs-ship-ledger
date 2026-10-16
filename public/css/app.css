@@ -427,12 +427,21 @@ tr.inactive td { color: var(--ink-3); }
 @keyframes sheet-up { from { transform: translateY(40px); opacity: 0; } }
 
 @media print {
-  @page { margin: 14mm; }
+  /* Browsers print the date, title and web address in the page margin. With no margin there is
+     nowhere to put them, so the white space is added inside the page instead, on every page. */
+  @page { margin: 0; }
   body { background: #fff; color: #000; font-size: 12px; }
   .side, .topbar, .tabbar, .scrim, .no-print, .crumbs, .toasts, .actions, .seg { display: none !important; }
   body { padding-bottom: 0; }
-  .app { display: block; } main { padding: 0; max-width: none; }
+  .app { display: block; }
+  main { padding: 14mm !important; max-width: none; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
   .report { border: 0; box-shadow: none; padding: 0; max-width: none; }
+  /* Keep the Ship's Report to a single sheet. */
+  .report h3 { margin: 12px 0 4px; }
+  .rp-f, .rp-edit { padding: 2px 0; }
+  .rp-sign { margin-top: 22px; margin-bottom: 4px; }
+  .rp-edit input::-webkit-calendar-picker-indicator { display: none; }
+  .rp-foot { margin-top: 12px; }
   .rp-edit input, .rp-edit select { border: 0; padding: 0; appearance: none; min-height: 0; font-weight: 600; }
   .tbl-wrap { border: 0; overflow: visible; } .tbl th { background: #eee; }
   .chip { border: 1px solid #999; background: none !important; color: #000 !important; }
