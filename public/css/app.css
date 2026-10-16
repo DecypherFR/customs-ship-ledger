@@ -45,6 +45,7 @@ code, .mono { font-family: var(--mono); font-size: .92em; }
 .skip { position: absolute; left: -999px; top: 8px; z-index: 100; background: var(--surface); padding: 8px 12px; border-radius: 6px; }
 .skip:focus { left: 8px; }
 :focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 2px; }
+.logo { object-fit: contain; flex: none; }
 .ico { width: 18px; height: 18px; flex: none; vertical-align: -3px; }
 .loading { padding: 48px 16px; text-align: center; color: var(--ink-3); }
 
@@ -80,7 +81,7 @@ main { padding: 22px 24px 64px; max-width: 1320px; width: 100%; outline: none; }
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; background: none; }
   .side { position: fixed; inset: 0 auto 0 0; width: 280px; z-index: 30; transform: translateX(-100%); transition: transform .2s ease; }
-  body.nav-open .side { transform: none; box-shadow: 0 0 0 100vmax rgb(0 0 0 / .4); }
+  body.nav-open .side { transform: none; box-shadow: 0 0 40px rgb(0 0 0 / .3); }
   .menu-btn { display: inline-grid; }
   .top-title { display: block; }
   .topbar { padding: 8px 16px; }
@@ -217,7 +218,7 @@ a.kpi:hover { border-color: var(--line-2); }
 .hb-n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
 
 /* ---------- tables ---------- */
-.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.tbl-wrap { position: relative; /* keeps .sr labels inside the scroll box */ overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .card .tbl-wrap { border: 0; border-radius: 0; margin: 0 -18px; }
 .tbl { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .tbl th { text-align: left; font-size: .76rem; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); font-weight: 650; padding: 9px 12px; border-bottom: 1px solid var(--line); background: var(--surface-2); white-space: nowrap; }
@@ -230,7 +231,8 @@ a.kpi:hover { border-color: var(--line-2); }
 .card .tbl th:first-child, .card .tbl td:first-child { padding-left: 18px; }
 .card .tbl th:last-child, .card .tbl td:last-child { padding-right: 18px; }
 .rowlink { cursor: pointer; }
-.rowlink:hover td { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+@media (hover: hover) { .rowlink:hover td { background: color-mix(in srgb, var(--accent) 5%, transparent); } }
+.rowlink:active { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 tr.pending td { background: var(--warning-soft); }
 tr.inactive td { color: var(--ink-3); }
 .flags { white-space: nowrap; }
@@ -344,10 +346,91 @@ tr.inactive td { color: var(--ink-3); }
 .rp-foot { margin-top: 24px; text-align: center; font-size: .78rem; color: #555; border-top: 1px solid #ccc; padding-top: 8px; }
 @media (max-width: 640px) { .report { padding: 18px 16px; } .rp-grid { grid-template-columns: 1fr; } .rp-head { grid-template-columns: auto 1fr; } .rp-rot { grid-column: 1 / -1; text-align: left; } }
 
+/* ---------- phones & tablets ---------- */
+.tabbar, .scrim, .filters-toggle, .m-only { display: none; }
+@media (max-width: 900px) {
+  :root { --tabbar-h: calc(60px + env(safe-area-inset-bottom)); }
+  /* Inputs under 16px make iPhones zoom in on focus. */
+  input, select, textarea { font-size: 16px; }
+  body { padding-bottom: var(--tabbar-h); }
+  body.nav-open { overflow: hidden; }
+  .app { min-height: 100dvh; }
+  .side { width: min(300px, 86vw); height: 100dvh; padding-top: max(16px, env(safe-area-inset-top)); padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  .scrim:not([hidden]) { display: block; position: fixed; inset: 0; z-index: 29; background: rgb(10 20 35 / .45); }
+  .topbar { padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 8px max(8px, env(safe-area-inset-left)); }
+  main { padding: 16px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left)); }
+  h1 { font-size: 1.35rem; }
+  .page-head { margin-bottom: 14px; }
+
+  /* Bottom bar: the most-used pages within thumb reach. */
+  .tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; height: var(--tabbar-h); padding: 4px 4px env(safe-area-inset-bottom);
+    background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(10px); border-top: 1px solid var(--line); }
+  .tabbar a, .tabbar button { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    font: inherit; font-size: .7rem; font-weight: 600; color: var(--ink-2); text-decoration: none; background: none; border: 0; border-radius: 10px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .tabbar .tab-ico { position: relative; display: grid; place-items: center; width: 48px; height: 30px; border-radius: 15px; }
+  .tabbar .ico { width: 22px; height: 22px; }
+  .tabbar .on { color: var(--accent); }
+  .tabbar .on .tab-ico { background: var(--accent-soft); }
+  .tabbar .tab-new .tab-ico { background: var(--gold); color: #1d1600; }
+  .tabbar .badge { position: absolute; top: -3px; right: 4px; background: var(--critical); color: #fff; font-size: .66rem; min-width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center; padding: 0 4px; border: 2px solid var(--surface); }
+  /* A form's own sticky Save bar takes the bar's place, and the on-screen keyboard hides it. */
+  body:has(.form-foot), body:has(main :is(input, textarea):focus) { --tabbar-h: 0px; }
+  body:has(.form-foot) .tabbar, body:has(main :is(input, textarea):focus) .tabbar { display: none; }
+  .form-foot { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .toasts { bottom: calc(var(--tabbar-h) + 12px); }
+}
+@media (pointer: coarse) {
+  .btn { min-height: 44px; }
+  .btn-sm { min-height: 40px; padding: 6px 12px; }
+  .icon-btn { width: 44px; height: 44px; }
+  .chk input, .radios input { width: 22px; height: 22px; min-height: 22px; }
+  .tbl-edit input[type=checkbox] { width: 22px; min-height: 22px; }
+}
+@media (max-width: 720px) {
+  .m-only { display: inline; }
+  /* Filters fold behind one button so results start near the top. */
+  .filters-bar.foldable .f-search { flex: 1 1 55%; min-width: 0; }
+  .filters-bar.foldable .filters-toggle { display: inline-flex; flex: none; }
+  .filters-bar.foldable:not(.filters-open) > :not(.f-search, .filters-toggle) { display: none; }
+  .filters-bar.foldable.filters-open > :is(select, input[type=month]) { flex: 1 1 calc(50% - 5px); }
+  .filters-toggle .count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: var(--accent); color: var(--accent-ink); font-size: .75rem; }
+  .filters-toggle[aria-expanded="true"] { background: var(--surface-2); }
+
+  /* Vessel calls: a compact card per call instead of every column stacked. */
+  .tbl-wrap .tbl.tbl-ledger tr { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, .7fr) minmax(0, .7fr); gap: 4px 10px; padding: 12px 14px; }
+  .tbl-wrap .tbl.tbl-ledger td[data-l="Vessel"] { grid-column: 1 / 4; grid-row: 1; }
+  .tbl-wrap .tbl.tbl-ledger td[data-l="Vessel"] b { font-size: 1rem; }
+  .tbl-wrap .tbl.tbl-ledger td[data-l="Flags"] { grid-column: 4; grid-row: 1; justify-self: end; }
+  .tbl-wrap .tbl.tbl-ledger td[data-l="Status"] { grid-column: 1 / -1; grid-row: 2; }
+  .tbl-wrap .tbl.tbl-ledger td[data-l="Rotation No."] { grid-column: 1 / 3; grid-row: 3; }
+  .tbl-wrap .tbl.tbl-ledger td[data-l="Station"] { grid-column: 3 / 5; grid-row: 3; color: var(--ink-2); }
+  .tbl-wrap .tbl.tbl-ledger td[data-l="Type"] { display: none; }
+  .tbl-wrap .tbl.tbl-ledger td:is([data-l="Vessel"], [data-l="Flags"], [data-l="Status"], [data-l="Rotation No."], [data-l="Station"])::before { display: none; }
+  .tbl-wrap .tbl.tbl-ledger td:is([data-l="Arrived"], [data-l="Departed"], [data-l="Crew"], [data-l="Ext."]) { grid-row: 4; margin-top: 4px; font-size: .9rem; font-variant-numeric: tabular-nums; }
+
+  .attn-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .attn { padding: 10px 12px; column-gap: 8px; }
+  .attn-ico { width: 28px; height: 28px; }
+  .attn-n { font-size: 1.35rem; }
+  .attn-l { font-size: .84rem; line-height: 1.25; }
+  .attn-s { font-size: .74rem; }
+  .seg { display: flex; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+  .seg a { flex: none; white-space: nowrap; }
+}
+@media (max-width: 600px) {
+  /* Dialogs open as a bottom sheet. */
+  .dlg, .dlg-wide { width: 100%; max-width: 100%; max-height: 92dvh; margin: auto 0 0; border-radius: 16px 16px 0 0; animation: sheet-up .2s ease-out; }
+  .dlg-form { max-height: 92dvh; }
+  .dlg-foot { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .dlg-foot .btn { flex: 1; }
+}
+@keyframes sheet-up { from { transform: translateY(40px); opacity: 0; } }
+
 @media print {
   @page { margin: 14mm; }
   body { background: #fff; color: #000; font-size: 12px; }
-  .side, .topbar, .no-print, .crumbs, .toasts, .actions, .seg { display: none !important; }
+  .side, .topbar, .tabbar, .scrim, .no-print, .crumbs, .toasts, .actions, .seg { display: none !important; }
+  body { padding-bottom: 0; }
   .app { display: block; } main { padding: 0; max-width: none; }
   .report { border: 0; box-shadow: none; padding: 0; max-width: none; }
   .rp-edit input, .rp-edit select { border: 0; padding: 0; appearance: none; min-height: 0; font-weight: 600; }
@@ -355,4 +438,4 @@ tr.inactive td { color: var(--ink-3); }
   .chip { border: 1px solid #999; background: none !important; color: #000 !important; }
   .kpi, .card { box-shadow: none; break-inside: avoid; }
 }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

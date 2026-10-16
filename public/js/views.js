@@ -1,6 +1,6 @@
 // Read-oriented views: dashboard, ledger, call detail, Ship's Report, extensions, overstay register, audit, sync queue.
 import { api, outbox, flushOutbox } from './api.js';
-import { html, raw, icon, chip, $, $$, fmtDate, fmtDateTime, fmtNum, fmtMonth, fmtMonthLong, toast, openDialog, options, formData } from './ui.js';
+import { html, raw, icon, chip, $, $$, fmtDate, fmtDateTime, fmtNum, fmtMonth, fmtMonthLong, toast, openDialog, options, formData, foldFilters, logo } from './ui.js';
 import { S, can, go, render, refreshBadges, paintConn } from './app.js';
 import { departureDialog, extensionDialog, decisionDialog, caseDialog } from './forms.js';
 
@@ -140,7 +140,7 @@ export async function callList(main, { params }) {
     <tbody>${pending.map((q) => html`<tr class="pending"><td data-l="Rotation No.">—</td><td data-l="Vessel"><b>${(q.body.vessel_name || '').toUpperCase()}</b></td><td data-l="Type">${q.body.vessel_type}</td><td data-l="Station">${stationName(q.body.station_code || S.me.user.station_code)}</td><td data-l="Arrived">${fmtDate(q.body.arrival_date)}</td><td data-l="Departed">${fmtDate(q.body.departure_date)}</td><td class="num" data-l="Crew">${q.body.crew}</td><td class="num" data-l="Ext.">0</td><td data-l="Status">${chip('PENDING SYNC')}</td><td></td></tr>`)}
     ${rows.map((c) => html`<tr class="rowlink" data-href="#/calls/${c.id}">
       <td data-l="Rotation No."><a href="#/calls/${c.id}" class="mono">${c.rotation_no}</a></td>
-      <td data-l="Vessel"><b>${c.vessel_name}</b><small class="sub">${c.flag || ''}</small></td>
+      <td data-l="Vessel"><b>${c.vessel_name}</b><small class="sub">${c.flag || ''}<span class="m-only">${c.flag ? ' · ' : ''}${c.vessel_type}</span></small></td>
       <td data-l="Type">${c.vessel_type}</td><td data-l="Station">${c.station_name}</td>
       <td data-l="Arrived">${fmtDate(c.arrival_date)}</td><td data-l="Departed">${fmtDate(c.departure_date) || '—'}</td>
       <td class="num" data-l="Crew">${c.crew ?? ''}</td><td class="num" data-l="Ext.">${c.extension_count}${c.pending_extensions ? html` <small class="sub">+${c.pending_extensions} pending</small>` : ''}</td>
@@ -149,6 +149,7 @@ export async function callList(main, { params }) {
     </tr>`)}</tbody></table></div>`
     : html`<div class="empty"><p>No vessel calls match these filters.</p>${can('calls.create') ? html`<a class="btn btn-primary" href="#/calls/new">${icon('plus')} Record a vessel call</a>` : ''}</div>`}`);
   const f = $('#cf', main);
+  foldFilters(f);
   let timer;
   f.addEventListener('input', (e) => { clearTimeout(timer); timer = setTimeout(() => go(`#/calls?${qs(formData(f))}`), e.target.type === 'search' ? 350 : 0); });
   f.addEventListener('submit', (e) => e.preventDefault());
@@ -246,7 +247,7 @@ export async function shipReport(main, { id }) {
     ${canEdit ? html`<button class="btn" id="save-rp" form="rp">${icon('check')} Save officer's report</button>` : ''}
     <button class="btn btn-primary" id="print">${icon('print')} Print</button></div></div>
   <form id="rp" class="report" novalidate>
-    <header class="rp-head"><img src="icons/icon.svg" alt="" width="54" height="54"><div><p>BELIZE CUSTOMS &amp; EXCISE DEPARTMENT</p><h2>SHIP'S REPORT</h2></div><div class="rp-rot"><span>Rotation No.</span><b class="mono">${c.rotation_no}</b></div></header>
+    <header class="rp-head">${logo(64)}<div><p>BELIZE CUSTOMS &amp; EXCISE DEPARTMENT</p><h2>SHIP'S REPORT</h2></div><div class="rp-rot"><span>Rotation No.</span><b class="mono">${c.rotation_no}</b></div></header>
     <h3>Ship particulars</h3>
     <div class="rp-grid">${[['Flag', c.flag], ['Rig', c.vessel_type], ['Vessel Name', c.vessel_name], ['Master', c.master], ['Tonnage GT / NT', `${fmtNum(c.gross_tonnage)} / ${fmtNum(c.net_tonnage)}`], ['Crew No.', c.crew], ['Port of Departure', c.last_port], ['Date of Departure', fmtDate(c.departure_date)], ['IMO / Reg. No.', c.imo], ['Station', c.station_name]].map(([l, v]) => html`<div class="rp-f"><span>${l}</span><b>${v ?? ''}</b></div>`)}</div>
     <h3>Cargo particulars</h3>

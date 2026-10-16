@@ -1,6 +1,6 @@
 // App shell: session, navigation, routing, connectivity and sync status.
 import { api, ApiError, flushOutbox, onSync, outbox } from './api.js';
-import { html, raw, icon, $, $$, toast, formData, showFormError } from './ui.js';
+import { html, raw, icon, logo, $, $$, toast, formData, showFormError } from './ui.js';
 import * as V from './views.js';
 import * as F from './forms.js';
 import * as Adm from './admin.js';
@@ -10,11 +10,11 @@ export const can = (p) => !!S.me && (S.me.perms.includes('*') || S.me.perms.incl
 export const go = (hash) => { if (location.hash === hash) render(); else location.hash = hash; };
 
 const NAV = [
-  { href: '#/', label: 'Dashboard', icon: 'dash', perm: 'dashboard.view' },
-  { href: '#/calls', label: 'Vessel calls', icon: 'ship', perm: 'calls.read' },
-  { href: '#/calls/new', label: 'New call', icon: 'plus', perm: 'calls.create', primary: true },
-  { href: '#/extensions', label: 'Extensions', icon: 'clock', perm: 'calls.read', badge: 'pending_extensions' },
-  { href: '#/overstay', label: 'Overstay register', icon: 'alert', perm: 'overstay.view', badge: 'overdue' },
+  { href: '#/', label: 'Dashboard', short: 'Home', icon: 'dash', perm: 'dashboard.view' },
+  { href: '#/calls', label: 'Vessel calls', short: 'Calls', icon: 'ship', perm: 'calls.read' },
+  { href: '#/calls/new', label: 'New call', short: 'New', icon: 'plus', perm: 'calls.create', primary: true },
+  { href: '#/extensions', label: 'Extensions', short: 'Extensions', icon: 'clock', perm: 'calls.read', badge: 'pending_extensions' },
+  { href: '#/overstay', label: 'Overstay register', short: 'Overstay', icon: 'alert', perm: 'overstay.view', badge: 'overdue' },
   { href: '#/audit', label: 'Audit trail', icon: 'history', perm: 'audit.view' },
   { href: '#/admin/users', label: 'Users', icon: 'users', perm: 'users.manage' },
   { href: '#/admin/settings', label: 'Lists & settings', icon: 'cog', perm: 'settings.manage' },
@@ -44,6 +44,10 @@ export async function refreshBadges() {
 
 async function boot() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  document.addEventListener('error', (e) => {
+    const img = e.target;
+    if (img.tagName === 'IMG' && img.dataset.fallback) { img.src = img.dataset.fallback; delete img.dataset.fallback; }
+  }, true);
   window.addEventListener('online', paintConn); window.addEventListener('offline', paintConn);
   onSync(async (e) => {
     await paintConn();
@@ -69,7 +73,7 @@ function shell() {
   <a class="skip" href="#main">Skip to content</a>
   <div class="app">
     <aside class="side" id="side">
-      <div class="brand">${raw('<img src="icons/icon.svg" alt="" width="36" height="36">')}<div><strong>National Ships Ledger</strong><span>Customs &amp; Excise · Belize</span></div></div>
+      <div class="brand">${logo(40)}<div><strong>National Ships Ledger</strong><span>Customs &amp; Excise · Belize</span></div></div>
       <nav id="nav" aria-label="Main"></nav>
       <div class="side-foot">
         <a href="#/account" class="who"><span class="avatar">${u.initials.replace(/[^A-Z]/g, '').slice(0, 2)}</span>
@@ -86,6 +90,8 @@ function shell() {
       <main id="main" tabindex="-1"></main>
     </div>
   </div>
+  <div class="scrim" id="scrim" hidden></div>
+  <nav class="tabbar" id="tabbar" aria-label="Quick links"></nav>
   <div id="toasts" class="toasts"></div>`);
   $('#logout').addEventListener('click', logout);
   // CSV exports are generated in the browser from data the user can already see.
@@ -94,18 +100,40 @@ function shell() {
     e.preventDefault();
     try { await api.download(a.getAttribute('href')); } catch (err) { toast(err.message, 'error'); }
   });
-  $('#menu').addEventListener('click', () => { const o = document.body.classList.toggle('nav-open'); $('#menu').setAttribute('aria-expanded', o); });
-  $('#side').addEventListener('click', (e) => { if (e.target.closest('a')) document.body.classList.remove('nav-open'); });
+  $('#menu').addEventListener('click', () => setDrawer(!document.body.classList.contains('nav-open')));
+  $('#side').addEventListener('click', (e) => { if (e.target.closest('a')) setDrawer(false); });
+  $('#scrim').addEventListener('click', () => setDrawer(false));
+  $('#tabbar').addEventListener('click', (e) => { if (e.target.closest('#more')) setDrawer(true); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('nav-open')) { setDrawer(false); $('#menu').focus(); } });
+  // Leaving a page (including with the phone's Back button) closes its menu and any open dialog.
+  window.addEventListener('hashchange', () => { setDrawer(false); $$('dialog.dlg').forEach((d) => { d.close(); d.remove(); }); });
   paintNav(); paintConn();
 }
+// The side menu becomes a drawer on small screens.
+function setDrawer(open) {
+  document.body.classList.toggle('nav-open', open);
+  $('#scrim').hidden = !open;
+  $('#menu').setAttribute('aria-expanded', open);
+  $('#more')?.setAttribute('aria-expanded', open);
+}
+const isActive = (href, here) => (href === '#/' ? here === '#/' || here === ''
+  : href === '#/calls' ? /^#\/calls(\?|\/\d|$)/.test(here) : here === href || here.startsWith(href + '/'));
+// Phones get a bottom bar with the four most-used pages; everything else stays in the drawer.
+const TABS = ['#/', '#/calls', '#/calls/new', '#/extensions', '#/overstay'];
 function paintNav() {
   const nav = $('#nav'); if (!nav) return;
   const here = location.hash || '#/';
-  nav.innerHTML = String(html`${NAV.filter((n) => can(n.perm)).map((n) => {
-    const active = n.href === '#/' ? here === '#/' || here === '' : here === n.href || (here.startsWith(n.href + '/') && n.href !== '#/calls') || (n.href === '#/calls' && /^#\/calls(\?|\/\d|$)/.test(here));
-    const b = n.badge && badges[n.badge];
-    return html`<a href="${n.href}" class="${active ? 'active' : ''} ${n.primary ? 'nav-primary' : ''}" ${active ? raw('aria-current="page"') : ''}>${icon(n.icon)}<span>${n.label}</span>${b ? html`<b class="badge" title="${b} need attention">${b}</b>` : ''}</a>`;
+  const items = NAV.filter((n) => can(n.perm));
+  const badge = (n) => { const b = n.badge && badges[n.badge]; return b ? html`<b class="badge" title="${b} need attention">${b}</b>` : ''; };
+  nav.innerHTML = String(html`${items.map((n) => {
+    const active = isActive(n.href, here);
+    return html`<a href="${n.href}" class="${active ? 'active' : ''} ${n.primary ? 'nav-primary' : ''}" ${active ? raw('aria-current="page"') : ''}>${icon(n.icon)}<span>${n.label}</span>${badge(n)}</a>`;
   })}`);
+  const tabs = TABS.map((h) => items.find((n) => n.href === h)).filter(Boolean).slice(0, 4);
+  $('#tabbar').innerHTML = String(html`${tabs.map((n) => {
+    const active = isActive(n.href, here);
+    return html`<a href="${n.href}" class="${active ? 'on' : ''} ${n.primary ? 'tab-new' : ''}" ${active ? raw('aria-current="page"') : ''}><span class="tab-ico">${icon(n.icon)}${badge(n)}</span><span>${n.short}</span></a>`;
+  })}<button type="button" id="more" aria-controls="side" aria-expanded="${document.body.classList.contains('nav-open')}"><span class="tab-ico">${icon('menu')}</span><span>More</span></button>`);
 }
 export async function paintConn() {
   const el = $('#conn'); if (!el) return;
@@ -149,7 +177,7 @@ function loginView() {
   document.body.innerHTML = String(html`
   <main class="login">
     <form class="login-card" id="login" novalidate>
-      ${raw('<img src="icons/icon.svg" alt="" width="64" height="64">')}
+      ${logo(96)}
       <h1>National Ships Ledger</h1>
       <p class="muted">Belize Customs &amp; Excise Department</p>
       <label>Email<input name="username" type="email" autocomplete="username" required autocapitalize="none" inputmode="email"></label>

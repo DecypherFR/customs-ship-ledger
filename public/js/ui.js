@@ -44,8 +44,11 @@ const P = {
   folder: '<path d="M3 6a1 1 0 011-1h5l2 2h9a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1z"/>',
   anchor: '<circle cx="12" cy="5" r="2"/><path d="M12 7v14M5 12H3a9 9 0 0018 0h-2M8 10h8"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  filter: '<path d="M4 5h16l-6 7.5V19l-4-2v-4.5z"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>',
 };
+// Department crest. Falls back to the app icon until icons/customs-logo.png has been added (see app.js).
+export const logo = (size, cls = '') => raw(`<img src="icons/customs-logo.png" data-fallback="icons/icon.svg" class="logo ${cls}" alt="Customs &amp; Excise Department, Belize" width="${size}" height="${size}">`);
 export const icon = (name, cls = '') => raw(`<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`);
 
 // ---- status chips: colour + icon + label, never colour alone ----
@@ -105,6 +108,19 @@ export function showFormError(form, err) {
   const input = field && form.querySelector(`[name="${field}"]`);
   if (input) { input.classList.add('invalid'); input.setAttribute('aria-invalid', 'true'); input.focus(); }
   if (box) { box.textContent = err.message; box.hidden = false; } else toast(err.message, 'error');
+}
+// On phones, filters other than the search box fold away behind a "Filters" button.
+// The open/closed state survives the re-render that follows each filter change.
+const openFilters = new Set();
+export function foldFilters(form) {
+  const active = [...form.elements].filter((el) => el.name && el.name !== 'q' && el.value).length;
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'btn filters-toggle'; b.setAttribute('aria-controls', form.id);
+  b.innerHTML = String(html`${icon('filter')} Filters${active ? html` <b class="count">${active}</b>` : ''}`);
+  const set = (open) => { form.classList.toggle('filters-open', open); b.setAttribute('aria-expanded', open); if (open) openFilters.add(form.id); else openFilters.delete(form.id); };
+  b.addEventListener('click', () => set(!form.classList.contains('filters-open')));
+  form.classList.add('foldable'); form.querySelector('.f-search').after(b);
+  set(openFilters.has(form.id));
 }
 export const formData = (form) => {
   const o = {};
